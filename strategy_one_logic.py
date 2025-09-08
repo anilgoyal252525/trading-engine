@@ -3,29 +3,27 @@ from datetime import datetime, timedelta
 import calendar
 from logger import logger
 from active_order_state import ActiveOrderState, ORDER_BOOK
+import math
 
 async def check_strategy_condition(symbol, candle):
     o, h, l, c = candle["open"], candle["high"], candle["low"], candle["close"]
+
+    ce_symbol, pe_symbol = await find_strike_price_atm(candle["close"])
     
     logger.info( f"[Candle] {candle['time']} | {symbol} | " f"open: {o}, high: {h}, low: {l}, close: {c}" )
 
-    # ✅ Avoid zero division
     if h == l:
         return False, None, None
 
     body_percentage = abs(c - o) / (h - l) * 100
 
-    # ✅ Only trade if body is significant
     if body_percentage < 90:
         return False, None, None
 
-    # ✅ Bullish or bearish candle check
     if c != o:  # skip doji-like candles where open == close
         side = 1 if c > o else 1   # 1 = BUY, -1 = SELL
-        candle_type = "Bullish" if c > o else "Bearish"
         stop_loss, take_profit = 0.5, 2.0
-
-        strike_price_name = await find_strike_price(c, candle_type)
+        strike_price_name = ce_symbol if c > o else pe_symbol 
 
         order_response = await place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=side, stop_loss=stop_loss, take_profit=take_profit)
         
@@ -37,7 +35,7 @@ async def check_strategy_condition(symbol, candle):
 
 
 async def save_order_details_to_global(order_id: str, strike_price_name: str) -> ActiveOrderState:
-    # ✅ Get main, stop, and target orders
+    
     main, stop, target = await get_main_stop_target_orders(order_id)
 
     if not main:
@@ -46,12 +44,11 @@ async def save_order_details_to_global(order_id: str, strike_price_name: str) ->
     stop_order_id = stop.get("id") if stop else None
     target_order_id = target.get("id") if target else None
 
-    # ✅ Pull prices directly from order objects (avoid redundant API calls)
     entry_price = main.get("tradedPrice")
     initial_stop_price = stop.get("stopPrice") if stop else None
     target_price = target.get("limitPrice") if target else None
 
-    # ✅ Precompute trailing levels
+    # Precompute trailing levels
     trailing_levels = []
     if entry_price:
         trailing_levels = [
@@ -102,7 +99,7 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
                 )
             except Exception as e:
                 logger.error(f"[Trailing SL Error] {symbol} | Level: {level['msg']} | {e}")
-                # ✅ Do NOT break; will retry on next tick
+                # Do NOT break; will retry on next tick
                 continue
 
             if res.get('code') == 1102:
@@ -118,7 +115,7 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
                     f"New Stop: {level['new_stop']} ({level['msg']}) LTP: {tick_ltp}"
                 )
 
-                # ✅ Only stop processing after success
+                # Only stop processing after success
                 break
             else:
                 # Modification failed, log it and retry on next tick
@@ -126,34 +123,40 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
                 continue
 
 
-async def next_tuesday() -> str:
+MONTH_ABBR = ['', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+
+async def next_tuesday_expiry(base_date: str = None) -> tuple[str, bool]:
+    # Use passed date or today
     today = datetime.today()
-    # Tuesday = 1 (Monday=0, Sunday=6)
-    days_ahead = 1 - today.weekday()
-    if days_ahead <= 0:
-        days_ahead += 7
+    # today = datetime.strptime("2025-10-12", "%Y-%m-%d") 
+
+    # Find next Tuesday
+    days_ahead = (1 - today.weekday()) % 7  # Tuesday = 1 (Mon=0)
+    days_ahead = days_ahead or 7            # if today is Tue, take next week
     tuesday = today + timedelta(days=days_ahead)
 
-    # Last Tuesday of the month check
-    last_day_of_month = calendar.monthrange(tuesday.year, tuesday.month)[1]
-    last_tuesday_day = last_day_of_month - ((datetime(tuesday.year, tuesday.month, last_day_of_month).weekday() - 1) % 7)
+    # Last Tuesday of the month
+    last_day = calendar.monthrange(tuesday.year, tuesday.month)[1]
+    last_tuesday = last_day - ((datetime(tuesday.year, tuesday.month, last_day).weekday() - 1) % 7)
 
-    year = tuesday.year % 100  # last two digits
-
-    if tuesday.day == last_tuesday_day:
-        # Last Tuesday: month abbreviation only
-        month_str = tuesday.strftime('%b').upper()
-        return f"{year}{month_str}"
+    if tuesday.day == last_tuesday:
+        # Monthly expiry → YY + MON_ABBR
+        expiry_str = f"{tuesday.year % 100}{MONTH_ABBR[tuesday.month]}"
+        return expiry_str, True
     else:
-        # Normal Tuesday: month without leading zero, day two digits
-        return f"{year}{tuesday.month}{tuesday.day:02d}"
+        # Weekly expiry → YYMMDD
+        expiry_str = f"{tuesday.year % 100}{tuesday.month}{tuesday.day:02d}"
+        return expiry_str, False
 
 
-async def find_strike_price(spot_price: float, candle_type: str) -> str:
-    option_type = {"Bullish": "CE", "Bearish": "PE"}.get(candle_type)
-    if not option_type:
-        raise ValueError("candle_type must be 'Bullish' or 'Bearish'")
+async def find_strike_price_atm(spot_price: float):
+    ce_strike = math.floor(spot_price / 50) * 50
+    pe_strike = math.ceil(spot_price / 50) * 50
 
-    atm_strike = round(spot_price / 50) * 50
-    expiry = await next_tuesday()
-    return f"NSE:NIFTY{expiry}{atm_strike}{option_type}"
+    expiry_str, _ = await next_tuesday_expiry()
+
+    ce_symbol = f"NSE:NIFTY{expiry_str}{ce_strike}CE"
+    pe_symbol = f"NSE:NIFTY{expiry_str}{pe_strike}PE"
+
+    return ce_symbol, pe_symbol
+
