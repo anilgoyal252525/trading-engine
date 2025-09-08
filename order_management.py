@@ -20,7 +20,7 @@ async def place_order(symbol: str, qty: int, order_type: int, side: int, stop_lo
         "stopLoss": stop_loss, 
         "takeProfit": take_profit 
     }
-    return await asyncio.to_thread(fyers.place_order, order_data)
+    return await fyers.place_order(order_data)
 
 
 #function to modify 
@@ -32,12 +32,12 @@ async def modify_order(order_id: str, order_type: int, limit_price: float, stop_
         "stopPrice": stop_price,
         "qty": qty
     }
-    return await asyncio.to_thread(fyers.modify_order, order_data)
+    return await fyers.modify_order(order_data)
 
 
 async def get_main_stop_target_orders(parent_id: str):
     # ✅ fetch all orders
-    response = await asyncio.to_thread(fyers.orderbook)
+    response = await fyers.orderbook()
     orders = response.get("orderBook", [])
 
     main_order, stop_order, target_order = None, None, None

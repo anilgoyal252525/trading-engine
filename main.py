@@ -33,7 +33,7 @@ async def main():
     order_mgr = FyersOrderManager.get_instance(access_token=COMBINED_TOKEN)
     order_mgr.connect()
 
-    # wait_until_precise("09:22", extra_seconds=35) #9:16:35
+    wait_until_precise("09:16", extra_seconds=35) #9:16:35
 
     await strategy_one(ws_mgr, order_mgr, loop, max_trades=1)
 

@@ -16,7 +16,7 @@ async def check_strategy_condition(symbol, candle):
     body_percentage = abs(c - o) / (h - l) * 100
 
     # ✅ Only trade if body is significant
-    if body_percentage < 5:
+    if body_percentage < 90:
         return False, None, None
 
     # ✅ Bullish or bearish candle check
