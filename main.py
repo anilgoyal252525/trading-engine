@@ -5,10 +5,14 @@ from strategy_one import strategy_one
 from logger import logger
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 import time
+from fyers_token import generate_access_token
 
 load_dotenv()
+    
+generate_access_token()
+
 COMBINED_TOKEN = f'{os.getenv("CLIENT_ID")}:{os.getenv("FYERS_ACCESS_TOKEN")}'
 
 def wait_until_precise(target_time_str, extra_seconds=0):
@@ -45,4 +49,5 @@ async def main():
     os._exit(0)
 
 if __name__ == "__main__":
+    # generate_access_token()
     asyncio.run(main())
