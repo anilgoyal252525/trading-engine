@@ -6,24 +6,9 @@ from strategy_one import strategy_one
 from logger import logger
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
-import time
 from event_bus import event_bus
 
 load_dotenv()
-
-def wait_until_precise(target_time_str, extra_seconds=0):
-    target_hour, target_minute = map(int, target_time_str.split(":"))
-    now = datetime.now()
-    target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
-    target += timedelta(seconds=extra_seconds)
-    if target <= now:
-        target += timedelta(days=1)
-    while True:
-        remaining = (target - datetime.now()).total_seconds()
-        if remaining <= 0:
-            break
-        time.sleep(min(remaining, 0.035))  # 35 ms max sleep
 
 async def main():
     loop = asyncio.get_running_loop()
@@ -37,8 +22,6 @@ async def main():
     logger.info("started................................")
 
     event_bus.wire_sources(ws_mgr, order_mgr, loop)
-
-    # wait_until_precise("09:16", extra_seconds=35) #9:16:35
 
     await strategy_one(ws_mgr, loop, max_trades=1)
 
