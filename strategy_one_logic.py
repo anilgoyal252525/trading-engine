@@ -2,10 +2,10 @@ from order_management import place_order, modify_order, get_main_stop_target_ord
 from datetime import datetime, timedelta
 import calendar
 from utils.logger import logger
-from active_order_state import ActiveOrderState, ORDER_BOOK
 import math
+from order_manager import OrderManager
 
-async def check_strategy_condition(symbol, candle):
+async def check_entry_condition(symbol, candle):
     o, h, l, c = candle["open"], candle["high"], candle["low"], candle["close"]
 
     ce_symbol, pe_symbol = await find_strike_price_atm(candle["close"])
@@ -17,7 +17,7 @@ async def check_strategy_condition(symbol, candle):
 
     body_percentage = abs(c - o) / (h - l) * 100
 
-    if body_percentage < 5:
+    if body_percentage < 90:
         return False, None, None
 
     if c != o:  # skip doji-like candles where open == close
@@ -25,55 +25,21 @@ async def check_strategy_condition(symbol, candle):
         stop_loss, take_profit = 0.5, 2.0
         strike_price_name = ce_symbol if c > o else pe_symbol 
 
+        #to check the time order was sent to the exchange
+        logger.info(f"last line before order placing to check the time next line is of order placement {strike_price_name}")
         order_response = await place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=side, stop_loss=stop_loss, take_profit=take_profit)
-        
+        logger.info("order id received first line after order placement")
+
         order_id = order_response.get("id")
 
         return True, order_id, strike_price_name
 
     return False, None, None
 
-
-async def save_order_details_to_global(order_id: str, strike_price_name: str) -> ActiveOrderState:
-    
-    main, stop, target = await get_main_stop_target_orders(order_id)
-
-    if not main:
-        raise ValueError(f"No main order found for {order_id}")
-
-    stop_order_id = stop.get("id") if stop else None
-    target_order_id = target.get("id") if target else None
-
-    entry_price = main.get("tradedPrice")
-    initial_stop_price = stop.get("stopPrice") if stop else None
-    target_price = target.get("limitPrice") if target else None
-
-    # Precompute trailing levels
-    trailing_levels = []
-    if entry_price:
-        trailing_levels = [
-            {"threshold": entry_price + 3, "new_stop": entry_price + 0.1, "msg": "breakeven"},
-            {"threshold": entry_price + 10, "new_stop": entry_price + 0.2, "msg": "1st trail locked profit"},
-        ]
-
-    order = ActiveOrderState(
-        main_order_id=order_id,
-        stop_order_id=stop_order_id,
-        target_order_id=target_order_id,
-        symbol=strike_price_name,
-        entry_price=entry_price,
-        initial_stop_price=initial_stop_price,
-        target_price=target_price,
-        trailing_levels=trailing_levels,
-    )
-
-    ORDER_BOOK.add(order_id, order)
-    return order
-
-
-
+#trailling function after order get placed || receving tick from consumer
 async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
-    order_obj = ORDER_BOOK.get(active_order_id)
+    # Get order from OrderManager
+    order_obj = await OrderManager.get_order(active_order_id)
     if not order_obj:
         return
 
@@ -84,7 +50,7 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
     stop_order_id = order_obj.stop_order_id
 
     for level in order_obj.trailing_levels:
-    # Skip if already applied successfully
+        # Skip if already applied successfully
         if any(hist["level"] == level["msg"] for hist in order_obj.trailing_history):
             continue
 
@@ -99,7 +65,6 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
                 )
             except Exception as e:
                 logger.error(f"[Trailing SL Error] {symbol} | Level: {level['msg']} | {e}")
-                # Do NOT break; will retry on next tick
                 continue
 
             if res.get('code') == 1102:
@@ -110,15 +75,14 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
                     "stop_price": level["new_stop"]
                 })
 
-                logger.info(
-                    f"[Trailing SL Update] {symbol} | Time: {tick.get('exch_feed_time')} "
-                    f"New Stop: {level['new_stop']} ({level['msg']}) LTP: {tick_ltp}"
-                )
+                # Update in OrderManager
+                await OrderManager.update_order(active_order_id, trailing_history=order_obj.trailing_history)
 
-                # Only stop processing after success
+                logger.info(
+                    f"[Trailing SL Update] {symbol} | New Stop: {level['new_stop']} ({level['msg']}) LTP: {tick_ltp}"
+                )
                 break
             else:
-                # Modification failed, log it and retry on next tick
                 logger.warning(f"[Trailing SL Failed] {symbol} | Level: {level['msg']} | Response: {res}")
                 continue
 

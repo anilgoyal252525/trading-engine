@@ -1,13 +1,13 @@
 import asyncio
-from strategy_one_logic import check_strategy_condition, start_trailing_sl, save_order_details_to_global
-from active_order_state import ORDER_BOOK, order_to_dict
+from strategy_one_logic import check_entry_condition, start_trailing_sl
 from utils.csv_builder import log_trade 
 from utils.logger import logger
 from event_bus import event_bus
-
+from order_manager import OrderManager
 
 async def strategy_one(ws_mgr, loop, max_trades):
-    strategy_id = "STRA_1"
+
+    strategy_id="strategy_one"
     
     candle_queue = event_bus.subscribe("candle")
     tick_queue = event_bus.subscribe("tick")
@@ -18,32 +18,38 @@ async def strategy_one(ws_mgr, loop, max_trades):
     active_order_id = None   
     active_strike_price_name = None
     
-    # Skip first candle 
-    _ = await candle_queue.get()
-    logger.info("first candle")
-    
     # ---------------- Consumers ----------------
     async def candle_consumer():
+        #skip candles
+        _ = await candle_queue.get()
+        logger.info("skipped candle")
+
         nonlocal trades_done, active_order_id, active_strike_price_name
         while not stop_event.is_set():
             symbol, candle = await candle_queue.get()
+
+            #check for max trade limit 
+            if active_order_id is None and trades_done >= max_trades:
+                logger.info(f"[Max trade Limit Reached | Trade Done: {trades_done} | Max Trade Limit: {max_trades}]")
+                stop_event.set()
+                break
             
             if trades_done < max_trades and active_order_id is None:
-                condition_met, active_order_id, active_strike_price_name = await check_strategy_condition(symbol, candle)
+                #check for entry condition
+                condition_met, active_order_id, active_strike_price_name = await check_entry_condition(symbol, candle)
+                #after order placed 
                 if condition_met:
                     trades_done += 1
-                    await save_order_details_to_global(active_order_id, active_strike_price_name)
+                    #save the order details to dic
+                    await OrderManager.add_order(strategy_id, active_order_id, active_strike_price_name)
+                    #subscribe the strike price
                     ws_mgr.subscribe_symbol(
                         active_strike_price_name,
                         mode="tick",
                         callback=lambda sym, tick: event_bus.tick_callback(loop, sym, tick)
                     )
                     logger.info(f"Order placed with ID: {active_order_id}")
-            
-            if active_order_id is None and trades_done >= max_trades:
-                logger.info(f"[Max trade Limit Reached | Trade Done: {trades_done} | Max Trade Limit: {max_trades}]")
-                stop_event.set()
-                break
+
 
     async def tick_consumer():
         nonlocal active_order_id
@@ -60,6 +66,7 @@ async def strategy_one(ws_mgr, loop, max_trades):
             if not processed:
                 await asyncio.sleep(0.001)
 
+
     async def trade_close_consumer():
         nonlocal active_order_id, trades_done, active_strike_price_name
         while not stop_event.is_set():
@@ -71,11 +78,12 @@ async def strategy_one(ws_mgr, loop, max_trades):
             ws_mgr.unsubscribe_symbol(active_strike_price_name)
             
             # Save trade details to CSV
-            if ORDER_BOOK.get(active_order_id):
-                await log_trade(trades_done, active_order_id, order_to_dict(ORDER_BOOK.get(active_order_id)))
-                ORDER_BOOK.remove(active_order_id)
-            
-            logger.info(f"[strategy_one] Trade {trades_done} closed")
+            order_obj = await OrderManager.get_order(active_order_id)
+            if order_obj:
+                await log_trade(trades_done, active_order_id, order_obj.to_dict())
+                await OrderManager.remove_order(active_order_id)
+                logger.info(f"[Order Closed] {active_order_id} removed from OrderManager")
+                logger.info(f"[strategy_one] Trade {trades_done} closed")
             
             active_strike_price_name = None
             active_order_id = None
