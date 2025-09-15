@@ -1,4 +1,4 @@
-from order_management import place_order, modify_order, get_main_stop_target_orders
+from order_placement import place_order, modify_order
 from datetime import datetime, timedelta
 import calendar
 from utils.logger import logger

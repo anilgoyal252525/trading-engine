@@ -1,6 +1,6 @@
 import asyncio
 from typing import ClassVar, Dict, List
-from order_management import get_main_stop_target_orders
+from order_placement import get_main_stop_target_orders
 
 class OrderManager:
     # Class-level registry for all active orders
