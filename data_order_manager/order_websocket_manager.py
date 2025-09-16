@@ -56,25 +56,15 @@ class FyersOrderManager:
 
         for pos in positions_list:
             symbol = pos.get("symbol")
-            net_qty = pos.get("netQty", 0)
-            realized = pos.get("realized_profit", 0)
 
-            if net_qty == 0:  # CLOSED
-                logger.info(f"[Position CLOSED] {symbol}")
-                logger.info(f"Realized P/L: {realized}")
+            # --- Common handling for both open and closed ---
+            for cb in self.callbacks:
+                cb(pos)
 
-                # Trigger all registered callbacks
-                for cb in self.callbacks:
-                    cb(pos)
-
-                # Signal any thread waiting for this symbol
-                event = self.events.get(symbol)
-                if event:
-                    event.set()
-                    self.events.pop(symbol, None)
-
-            else:  # OPEN
-                logger.info(f"[Position OPEN] {symbol}, Qty: {net_qty}")
+            event = self.events.get(symbol)
+            if event:
+                event.set()
+                self.events.pop(symbol, None)
 
     # ---------------- Public Methods ----------------
     def connect(self):

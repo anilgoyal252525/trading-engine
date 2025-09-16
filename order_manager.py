@@ -18,6 +18,7 @@ class OrderManager:
         initial_stop_price: float = None,
         target_price: float = None,
         trailing_levels: List[dict] = None,
+        position_id: str = None,
     ):
         self.strategy_id = strategy_id
         self.main_order_id = main_order_id
@@ -29,6 +30,7 @@ class OrderManager:
         self.target_price = target_price
         self.trailing_levels = trailing_levels or []
         self.trailing_history = []
+        self.position_id = position_id
 
         # Automatically register this order
         OrderManager._registry[self.main_order_id] = self
@@ -38,11 +40,12 @@ class OrderManager:
             f"OrderManager(strategy={self.strategy_id}, "
             f"main_order_id={self.main_order_id}, symbol={self.symbol}, "
             f"entry_price={self.entry_price}, trailing_levels={self.trailing_levels})"
+            
         )
 
     # ---------------- Class Methods ----------------
     @classmethod
-    async def add_order(cls, strategy_id: str, main_order_id: str, active_symbol: str):
+    async def add_order(cls, strategy_id: str, main_order_id: str, position_id: str, active_symbol: str):
         # Fetch broker orders
         main, stop, target = await get_main_stop_target_orders(main_order_id)
         
@@ -68,6 +71,7 @@ class OrderManager:
             order = cls(
                 strategy_id=strategy_id,
                 main_order_id=main_order_id,
+                position_id=position_id,
                 symbol=active_symbol,
                 stop_order_id=stop_order_id,
                 target_order_id=target_order_id,
@@ -121,5 +125,6 @@ class OrderManager:
             "target_price": self.target_price,
             "trailing_levels": list(self.trailing_levels),
             "trailing_history": list(self.trailing_history),
+            "position_id": self.position_id,
         }
 

@@ -13,12 +13,12 @@ async def check_entry_condition(symbol, candle):
     logger.info( f"[Candle] {candle['time']} | {symbol} | " f"open: {o}, high: {h}, low: {l}, close: {c}" )
 
     if h == l:
-        return False, None, None
+        return False, None
 
     body_percentage = abs(c - o) / (h - l) * 100
 
-    if body_percentage < 90:
-        return False, None, None
+    if body_percentage < 5:
+        return False, None
 
     if c != o:  # skip doji-like candles where open == close
         side = 1 if c > o else 1   # 1 = BUY, -1 = SELL
@@ -32,9 +32,9 @@ async def check_entry_condition(symbol, candle):
 
         order_id = order_response.get("id")
 
-        return True, order_id, strike_price_name
+        return True, order_id
 
-    return False, None, None
+    return False, None
 
 #trailling function after order get placed || receving tick from consumer
 async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):

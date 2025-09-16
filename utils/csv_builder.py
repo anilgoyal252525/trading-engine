@@ -26,6 +26,7 @@ async def log_trade(trade_no: int, order_id: str, details: dict, file_path=CSV_F
     stop = details.get("initial_stop_price")
     target = details.get("target_price")
     qty = details.get("qty", 1)
+    position_id = details.get("position_id", 1)
 
     side = details.get("side")
     if side is None:
@@ -35,6 +36,7 @@ async def log_trade(trade_no: int, order_id: str, details: dict, file_path=CSV_F
         "trade_no": trade_no,
         "order_id": order_id,
         "symbol": details.get("symbol"),
+        "position_id": position_id,
         "qty": qty,
         "side": side,
         "entry_price": entry,
