@@ -1,6 +1,6 @@
 # strategy/strategy_one.py
 import asyncio
-from strategy.strategy_one_logic import check_entry_condition, start_trailing_sl
+from strategy.strategy_one_logic import strategy_logic_manager
 from utils.csv_builder import csv_builder
 from utils.logger import logger
 from centeral_hub.event_bus import event_bus
@@ -38,7 +38,7 @@ class StrategyOne:
                 break
             
             if self.trades_done < self.max_trades and self.active_order_id is None:
-                condition_met, self.active_order_id = await check_entry_condition(symbol, candle)
+                condition_met, self.active_order_id = await strategy_logic_manager.check_entry_condition(symbol, candle)
                 if condition_met:
                     self.trades_done += 1
                     logger.info(f"Order placed with ID: {self.active_order_id}")
@@ -52,7 +52,7 @@ class StrategyOne:
                 symbol, tick = self.tick_queue.get_nowait()
                 processed = True
                 if self.active_order_id:
-                    await start_trailing_sl(self.active_order_id, symbol, tick)
+                    await strategy_logic_manager.start_trailing_sl(symbol, self.active_order_id, tick)
             if not processed:
                 await asyncio.sleep(0.001)
 
