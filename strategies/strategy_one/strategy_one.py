@@ -1,6 +1,7 @@
 # strategy/strategy_one.py
 import asyncio
 from strategies.strategy_one.strategy_one_logic import strategy_logic_manager
+from strategies.strategy_one.strategy_one_trailling import strategy_one_trailing
 from utils.csv_builder import csv_builder
 from utils.logger import logger
 from centeral_hub.event_bus import event_bus
@@ -24,7 +25,7 @@ class StrategyOne:
         self.stop_event = asyncio.Event()
 
     async def candle_consumer(self):
-        # Skip first candle
+        # Skip candle
         _ = await self.candle_queue.get()
         logger.info("skipped candle")
 
@@ -52,7 +53,7 @@ class StrategyOne:
                 symbol, tick = self.tick_queue.get_nowait()
                 processed = True
                 if self.active_order_id:
-                    await strategy_logic_manager.start_trailing_sl(symbol, self.active_order_id, tick)
+                    await strategy_one_trailing.start_trailing_sl(symbol, self.active_order_id, tick)
             if not processed:
                 await asyncio.sleep(0.001)
 
