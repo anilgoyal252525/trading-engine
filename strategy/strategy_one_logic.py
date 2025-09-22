@@ -1,4 +1,4 @@
-from order_manager.fyers_order_placement import place_order, modify_order
+from order_manager.fyers_order_placement import fyers_order_placement
 from utils.logger import logger
 from order_manager.order_manager import OrderManager
 from strategy.helper import OptionHelper
@@ -25,7 +25,7 @@ async def check_entry_condition(symbol, candle):
 
         #to check the time order was sent to the exchange
         logger.info(f"last line before order placing to check the time next line is of order placement {strike_price_name}")
-        order_response = await place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=side, stop_loss=stop_loss, take_profit=take_profit)
+        order_response = await fyers_order_placement.place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=side, stop_loss=stop_loss, take_profit=take_profit)
         logger.info("order id received first line after order placement")
 
         order_id = order_response.get("id")
@@ -54,7 +54,7 @@ async def start_trailing_sl(active_order_id: str, symbol: str, tick: dict):
 
         if tick_ltp > level["threshold"]:
             try:
-                res = await modify_order(
+                res = await fyers_order_placement.modify_order(
                     stop_order_id,
                     order_type=4,
                     limit_price=level["new_stop"],

@@ -1,6 +1,6 @@
 import asyncio
 from typing import ClassVar, Dict, List
-from order_manager.fyers_order_placement import get_main_stop_target_orders
+from order_manager.fyers_order_placement import fyers_order_placement
 from utils.error_handling import error_handling
 
 @error_handling
@@ -49,7 +49,7 @@ class OrderManager:
     @classmethod
     async def add_order(cls, strategy_id: str, main_order_id: str, position_id: str, active_symbol: str):
         # Fetch broker orders
-        main, stop, target = await get_main_stop_target_orders(main_order_id)
+        main, stop, target = await fyers_order_placement.get_main_stop_target_orders(main_order_id)
         
         if not main:
             raise ValueError(f"No main order found for {main_order_id}")
