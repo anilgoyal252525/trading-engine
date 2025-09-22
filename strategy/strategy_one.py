@@ -1,6 +1,6 @@
 import asyncio
 from strategy.strategy_one_logic import check_entry_condition, start_trailing_sl
-from utils.csv_builder import log_trade 
+from utils.csv_builder import csv_builder 
 from utils.logger import logger
 from centeral_hub.event_bus import event_bus
 from order_manager.order_manager import OrderManager
@@ -74,7 +74,7 @@ async def strategy_one(strategy_id, ws_mgr, loop, max_trades):
                 ws_mgr.unsubscribe_symbol(active_symbol)
                 order_obj = await OrderManager.get_order(active_order_id)
                 if order_obj:
-                    await log_trade(trades_done, active_order_id, order_obj.to_dict())
+                    await csv_builder.log_trade(trades_done, active_order_id, order_obj.to_dict())
                     await OrderManager.remove_order(active_order_id)
                     logger.info(f"[strategy_one] Trade {trades_done} closed")
                     logger.info(f"[strategy_one] Trade {trades_done} PNL : {realized}")
