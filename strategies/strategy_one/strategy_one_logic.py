@@ -1,7 +1,7 @@
 from order_manager.fyers_order_placement import fyers_order_placement
 from utils.logger import logger
 from order_manager.order_manager import OrderManager
-from strategy.helper import OptionHelper
+from strategies.strategy_one.helper import OptionHelper
 from utils.error_handling import error_handling
 
 @error_handling

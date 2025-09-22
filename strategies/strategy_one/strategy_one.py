@@ -1,6 +1,6 @@
 # strategy/strategy_one.py
 import asyncio
-from strategy.strategy_one_logic import strategy_logic_manager
+from strategies.strategy_one.strategy_one_logic import strategy_logic_manager
 from utils.csv_builder import csv_builder
 from utils.logger import logger
 from centeral_hub.event_bus import event_bus

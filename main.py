@@ -2,7 +2,7 @@
 import asyncio
 from websocket_manager.position_manager.fyers_position_webscoket import FyersOrderManager
 from websocket_manager.data_manager.fyers_data_websocket import FyersWSManager
-from strategy.strategy_one import StrategyOne   
+from strategies.strategy_one.strategy_one import StrategyOne   
 from utils.logger import logger
 from centeral_hub.event_bus import event_bus
 from utils.error_handling import error_handling
