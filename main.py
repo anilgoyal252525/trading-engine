@@ -34,6 +34,9 @@ async def main():
     await order_mgr.stop()
 
     logger.info("[Main] Program terminated....................")
+
+    # --- flush any queued logs before exit ---
+    await logger.flush()
     
     os._exit(0)
 
