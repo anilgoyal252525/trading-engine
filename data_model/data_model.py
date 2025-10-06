@@ -6,6 +6,8 @@ class TradeDoneData:
     strategy_id: str
     trade_no: int
     order_id: str
+    stop_order_id: str
+    target_order_id: str
     symbol: str
     position_id: str
     qty: int

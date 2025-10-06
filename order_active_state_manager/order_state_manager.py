@@ -104,6 +104,8 @@ class OrderManager:
             strategy_id=self.strategy_id,
             trade_no=trade_no,
             order_id=self.main_order_id,
+            stop_order_id=self.stop_order_id,
+            target_order_id=self.target_order_id, 
             symbol=self.symbol,
             position_id=self.position_id,
             qty=1,
