@@ -1,7 +1,7 @@
 # strategy/strategy_one.py
 import asyncio
 from strategies.strategy_one.strategy_one_logic import StrategyLogicManager
-from strategies.strategy_one.strategy_one_trailling import strategy_one_trailing
+from strategies.strategy_one.trailling_manager import TrailingManager
 from utils.csv_builder import CSVBuilder
 from utils.logger import logger
 from centeral_hub.event_bus import EventBus
@@ -20,6 +20,7 @@ class StrategyOne:
         self.csv_builder = CSVBuilder()
         self.strategy_logic_manager = StrategyLogicManager()
         self.fyers_order_placement = FyersOrderPlacement()
+        self.trailling_manager = TrailingManager()
 
         self.candle_queue = EventBus.subscribe("candle")
         self.tick_queue = EventBus.subscribe("tick")
@@ -82,7 +83,7 @@ class StrategyOne:
         while True:
             symbol, tick = await self.tick_queue.get()  
             if self.active_order_id:
-                await strategy_one_trailing.start_trailing_sl(self.fyers_order_placement, self.strategy_id, symbol, self.active_order_id, tick)
+                await self.trailling_manager.start_trailing_sl(self.fyers_order_placement, self.strategy_id, symbol, self.active_order_id, tick)
 
     async def trade_close_consumer(self):
         while True:

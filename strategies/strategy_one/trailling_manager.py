@@ -3,7 +3,7 @@ from utils.error_handling import error_handling
 from order_active_state_manager.order_state_manager import TradeManager
 
 @error_handling
-class StrategyOneTrailing:
+class TrailingManager:
     async def start_trailing_sl(self, fyers_order_placement, strategy_id: str, symbol: str, order_id: str, tick: dict):
         trade_data = await TradeManager.get_trade(strategy_id, order_id)
         if not trade_data or not tick:
@@ -42,5 +42,3 @@ class StrategyOneTrailing:
                     break
                 else:
                     logger.warning(f"[{strategy_id}] Trailing SL failed {symbol} | {level['msg']} Response: {res}")
-
-strategy_one_trailing = StrategyOneTrailing()
