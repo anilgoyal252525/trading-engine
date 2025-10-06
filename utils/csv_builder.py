@@ -6,7 +6,7 @@ import csv
 from io import StringIO
 from datetime import datetime
 from utils.error_handling import error_handling
-from data_model.data_model import TradeDoneData
+from data_model.data_model import TradeData
 from dataclasses import asdict
 
 @error_handling
@@ -18,7 +18,7 @@ class CSVBuilder:
         self.file_path = ""
         self._lock = asyncio.Lock()
 
-    async def log_trade(self, trade: TradeDoneData):
+    async def log_trade(self, trade: TradeData):
         today_file = os.path.join(
             self.base_dir, f"{self.prefix}_{datetime.now().strftime('%Y-%m-%d')}.csv"
         )

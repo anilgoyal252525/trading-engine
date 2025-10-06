@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
 
 @dataclass(slots=True)
-class TradeDoneData:
+class TradeData:
     strategy_id: str
     trade_no: int
     order_id: str

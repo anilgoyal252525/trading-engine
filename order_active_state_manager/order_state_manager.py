@@ -1,7 +1,7 @@
 import asyncio
 from typing import ClassVar, Dict, List, Optional
 from utils.error_handling import error_handling
-from data_model.data_model import TradeDoneData
+from data_model.data_model import TradeData
 
 @error_handling
 class OrderManager:
@@ -98,9 +98,9 @@ class OrderManager:
             return [o for o in cls._registry.values() if o.strategy_id == strategy_id]
 
     # ---------------- Export as Data Model ----------------
-    def to_trade_done_data(self, trade_no: int) -> TradeDoneData:
+    def to_trade_done_data(self, trade_no: int) -> TradeData:
         side = "BUY" if self.target_price and self.entry_price and self.target_price > self.entry_price else "SELL"
-        return TradeDoneData(
+        return TradeData(
             strategy_id=self.strategy_id,
             trade_no=trade_no,
             order_id=self.main_order_id,
