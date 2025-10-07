@@ -1,6 +1,6 @@
 # strategy/strategy_one.py
 import asyncio
-from strategies.strategy_one.strategy_one_logic import StrategyLogicManager
+from strategies.strategy_one.logic_manager import StrategyLogicManager
 from strategies.strategy_one.trailling_manager import TrailingManager
 from utils.csv_builder import CSVBuilder
 from utils.logger import logger
@@ -34,6 +34,9 @@ class StrategyOne:
     def is_max_trade_reached(self):
         if self.trades_done >= self.max_trades:
             logger.info(f"[{self.strategy_id}] Max trade limit reached: {self.trades_done}/{self.max_trades}")
+            for task in self.tasks:
+                if not task.done():
+                    task.cancel()
             return True
         return False
     
@@ -68,10 +71,6 @@ class StrategyOne:
             symbol, candle = await self.candle_queue.get()
             if self.active_order_id is None:
                 if self.is_max_trade_reached():
-                    logger.info("cancelling all task")
-                    for task in self.tasks:
-                        if not task.done():
-                            task.cancel()
                     break  
                 condition_met = await self.strategy_logic_manager.check_entry_condition(self.strategy_id, symbol, candle)
                 if condition_met:
