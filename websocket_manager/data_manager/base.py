@@ -5,6 +5,7 @@ from .tick_processor import TickProcessor
 from .candle_builder import CandleBuilder
 from websocket_manager.fyers_broker.broker_interface import BrokerInterface
 from .base_interface import BaseWSManager
+from centeral_hub.event_bus import EventBus
 
 @error_handling
 class FyersWSManager(BaseWSManager):
@@ -64,19 +65,24 @@ class FyersWSManager(BaseWSManager):
     
     async def _process_broker_msg_queue(self):
         while self._running:
-            message = await self.tick_queue.get()
-            if not message:
+            raw_data = await self.tick_queue.get()
+            if not raw_data:
                 continue
-            symbol = message.get("symbol")
-            if not symbol or symbol not in self.symbols:
-                continue
-            cfg = self.symbols[symbol]
-            
-            if cfg["mode"] == "tick":
-                await self.tick_processor.process_tick(symbol, message, publish=True)
-            else:
-                if await self.tick_processor.process_tick(symbol, message, publish=False):
-                    await self.candle_builder.process_candle_tick(
-                        symbol, message, cfg["timeframe"]
-                    )
-    
+
+            msg_type = raw_data.get("type")
+            message = raw_data.get("data")
+
+            if msg_type == "broker_raw_ticks":
+                symbol = message.get("symbol")
+                if not symbol or symbol not in self.symbols:
+                    continue
+                cfg = self.symbols[symbol]
+
+                if cfg["mode"] == "tick":
+                    await self.tick_processor.process_tick(symbol, message, publish=True)
+                else:
+                    if await self.tick_processor.process_tick(symbol, message, publish=False):
+                        await self.candle_builder.process_candle_tick(symbol, message, cfg["timeframe"])
+
+            elif msg_type == "positions":
+                await EventBus.publish("fyers_position_update", message)

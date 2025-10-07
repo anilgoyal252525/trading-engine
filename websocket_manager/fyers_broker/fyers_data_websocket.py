@@ -42,7 +42,7 @@ class FyersDataBroker(BrokerInterface):
         def _on_message(message):
             msg = json.loads(message) if isinstance(message, str) else message
             if self._running and self._queue:
-                asyncio.run_coroutine_threadsafe(self._queue.put(msg), self._loop)
+                asyncio.run_coroutine_threadsafe(self._queue.put({"type": "broker_raw_ticks", "data": msg}), self._loop)
 
         def _on_error(error):
             logger.error(f"[Fyers] Error: {error}")
