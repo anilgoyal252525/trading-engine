@@ -1,5 +1,7 @@
 # strategy/strategy_one.py
 import asyncio
+from typing import Optional
+from data_model.data_model import TradeData
 from strategies.strategy_one.logic_manager import StrategyLogicManager
 from strategies.strategy_one.trailling_manager import TrailingManager
 from utils.csv_builder import CSVBuilder
@@ -18,6 +20,7 @@ class StrategyOne:
         self.max_trades = max_trades
 
         self.csv_builder = CSVBuilder()
+        self.order_state_manager = TradeManager(strategy_id)
         self.strategy_logic_manager = StrategyLogicManager()
         self.fyers_order_placement = FyersOrderPlacement()
         self.trailling_manager = TrailingManager()
@@ -28,6 +31,8 @@ class StrategyOne:
 
         self.trades_done = 0
         self.active_order_id = None
+        self.active_trade_data_obj: Optional[TradeData] = None
+
 
     # ------------------ Max Trade Check ------------------
     def is_max_trade_reached(self):
@@ -48,7 +53,7 @@ class StrategyOne:
 
         if self.active_order_id and net_qty == 0:  #--- TRADE CLOSE ----- 
             self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25OCT24800CE")
-            trade_data = await TradeManager.close_trade(self.strategy_id, self.active_order_id)
+            trade_data = await self.order_state_manager.close_trade(self.active_order_id)
             if trade_data:
                 trade_data.trade_no = self.trades_done
                 await self.csv_builder.log_trade(trade_data)
@@ -56,7 +61,8 @@ class StrategyOne:
                 logger.info(f"[{self.strategy_id}] Trade {self.trades_done} PNL: {realized}")
             self.active_order_id = None
         elif self.active_order_id: #--- TRADE OPEN -----  
-            await TradeManager.add_trade(self.fyers_order_placement, self.strategy_id, self.active_order_id, position_id, active_symbol)
+            active_trade_data_obj = await self.order_state_manager.add_trade(self.fyers_order_placement, self.active_order_id, position_id, active_symbol)
+            self.active_trade_data_obj: Optional[TradeData] = active_trade_data_obj
             self.ws_mgr.subscribe_symbol("NSE:NIFTY25OCT24800CE", mode="tick")
             logger.info(f"[{self.strategy_id}] Position OPEN: {active_symbol}, Qty: {net_qty}")
 
@@ -80,9 +86,13 @@ class StrategyOne:
 
     async def tick_consumer(self):
         while True:
-            symbol, tick = await self.tick_queue.get()  
-            if self.active_order_id:
-                await self.trailling_manager.start_trailing_sl(self.fyers_order_placement, self.strategy_id, symbol, self.active_order_id, tick)
+            _, tick = await self.tick_queue.get()
+            if self.active_trade_data_obj:
+                await TrailingManager.start_trailing_sl(
+                    self.fyers_order_placement,
+                    self.active_trade_data_obj,
+                    tick
+                )  
 
     async def broker_postion_consumer(self):
         while True:

@@ -1,11 +1,10 @@
 from utils.logger import logger
 from utils.error_handling import error_handling
-from order_active_state_manager.order_state_manager import TradeManager
+from data_model.data_model import TradeData
 
 @error_handling
 class TrailingManager:
-    async def start_trailing_sl(self, fyers_order_placement, strategy_id: str, symbol: str, order_id: str, tick: dict):
-        trade_data = await TradeManager.get_trade(strategy_id, order_id)
+    async def start_trailing_sl(fyers_order_placement, trade_data: TradeData, tick: dict):
         if not trade_data or not tick:
             return
 
@@ -14,31 +13,37 @@ class TrailingManager:
             return
 
         stop_order_id = trade_data.stop_order_id
-        for level in trade_data.trailing_levels:
-            if any(hist["level"] == level["msg"] for hist in trade_data.trailing_history):
+        if not stop_order_id:
+            return
+
+        trailing_levels = trade_data.trailing_levels or []
+        trailing_history = trade_data.trailing_history or []
+
+        for level in trailing_levels:
+            if any(hist.get("level") == level.get("msg") for hist in trailing_history):
                 continue
 
-            if tick_ltp > level["threshold"]:
+            if tick_ltp > level.get("threshold", float("inf")):
                 try:
                     res = await fyers_order_placement.modify_order(
                         stop_order_id,
                         order_type=4,
-                        limit_price=level["new_stop"],
-                        stop_price=level["new_stop"],
-                        qty=1,
+                        limit_price=level.get("new_stop"),
+                        stop_price=level.get("new_stop"),
+                        qty=trade_data.qty or 1,
                     )
                 except Exception as e:
-                    logger.error(f"[{strategy_id}] Trailing SL Error {symbol} | {level['msg']} | {e}")
+                    logger.error(f"[{trade_data.strategy_id}] Trailing SL Error {trade_data.symbol} | {level.get('msg')} | {e}")
                     continue
 
                 if res.get('code') == 1102:
                     # Update trade trailing history
-                    await TradeManager.update_trailing_history(strategy_id, order_id, {
+                    trade_data.trailing_history.append({
                         "ltp": tick_ltp,
-                        "level": level["msg"],
-                        "stop_price": level["new_stop"]
+                        "level": level.get("msg"),
+                        "stop_price": level.get("new_stop")
                     })
-                    logger.info(f"[{strategy_id}] Trailing SL updated {symbol} | {level['msg']} LTP: {tick_ltp}")
+                    logger.info(f"[{trade_data.strategy_id}] Trailing SL updated {trade_data.symbol} | {level.get('msg')} LTP: {tick_ltp}")
                     break
                 else:
-                    logger.warning(f"[{strategy_id}] Trailing SL failed {symbol} | {level['msg']} Response: {res}")
+                    logger.warning(f"[{trade_data.strategy_id}] Trailing SL failed {trade_data.symbol} | {level.get('msg')} Response: {res}")

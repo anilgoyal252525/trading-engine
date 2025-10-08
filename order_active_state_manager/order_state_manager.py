@@ -1,29 +1,26 @@
 import asyncio
-from typing import ClassVar, Dict, Optional, List
+from typing import Dict, Optional
 from utils.error_handling import error_handling
 from data_model.data_model import TradeData
 
 @error_handling
 class TradeManager:
-    # Nested dict: {strategy_id: {order_id: TradeData}}
-    _registry: ClassVar[Dict[str, Dict[str, TradeData]]] = {}
-    _lock: ClassVar[asyncio.Lock] = asyncio.Lock()
-    _trade_counter: ClassVar[Dict[str, int]] = {}  # auto trade numbering per strategy
+    def __init__(self, strategy_id: str):
+        self.strategy_id = strategy_id
+        self._trades: Dict[str, TradeData] = {}  # in-memory trades for this strategy
+        self._trade_counter = 0
+        self._lock = asyncio.Lock()
 
-    @classmethod
-    async def add_trade(
-        cls, fyers_order_placement, strategy_id: str, main_order_id: str, position_id: str, symbol: str
-    ) -> TradeData:
+    async def add_trade(self, fyers_order_placement, main_order_id: str, position_id: str, symbol: str) -> TradeData:
         main, stop, target = await fyers_order_placement.get_main_stop_target_orders(main_order_id)
         if not main:
             raise ValueError(f"No main order found for {main_order_id}")
 
-        # Auto trade number per strategy
-        cls._trade_counter[strategy_id] = cls._trade_counter.get(strategy_id, 0) + 1
-        trade_no = cls._trade_counter[strategy_id]
+        self._trade_counter += 1
+        trade_no = self._trade_counter
 
         trade_data = TradeData(
-            strategy_id=strategy_id,
+            strategy_id=self.strategy_id,
             trade_no=trade_no,
             order_id=main_order_id,
             stop_order_id=stop.get("id") if stop else None,
@@ -44,25 +41,20 @@ class TradeManager:
             trailing_history=[]
         )
 
-        async with cls._lock:
-            cls._registry.setdefault(strategy_id, {})[main_order_id] = trade_data
+        async with self._lock:
+            self._trades[main_order_id] = trade_data
 
         return trade_data
 
-    @classmethod
-    async def get_trade(cls, strategy_id: str, main_order_id: str) -> Optional[TradeData]:
-        async with cls._lock:
-            return cls._registry.get(strategy_id, {}).get(main_order_id)
-
-    @classmethod
-    async def close_trade(cls, strategy_id: str, main_order_id: str) -> Optional[TradeData]:
-        async with cls._lock:
-            return cls._registry.get(strategy_id, {}).pop(main_order_id, None)
-
-    @classmethod
-    async def update_trailing_history(cls, strategy_id: str, order_id: str, new_hist: dict):
-        async with cls._lock:
-            trade = cls._registry.get(strategy_id, {}).get(order_id)
+    async def update_trailing_history(self, main_order_id: str, new_hist: dict) -> Optional[TradeData]:
+        async with self._lock:
+            trade = self._trades.get(main_order_id)
             if trade:
                 trade.trailing_history.append(new_hist)
                 return trade
+
+    async def close_trade(self, main_order_id: str) -> Optional[TradeData]:
+        async with self._lock:
+            trade = self._trades.pop(main_order_id, None)
+
+        return trade
