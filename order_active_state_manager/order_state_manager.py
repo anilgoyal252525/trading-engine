@@ -11,8 +11,9 @@ class TradeManager:
         self._trade_counter = 0
         self._lock = asyncio.Lock()
 
-    async def add_trade(self, fyers_order_placement, main_order_id: str, position_id: str, symbol: str) -> TradeData:
+    async def add_trade(self, fyers_order_placement, main_order_id: str) -> TradeData:
         main, stop, target = await fyers_order_placement.get_main_stop_target_orders(main_order_id)
+
         if not main:
             raise ValueError(f"No main order found for {main_order_id}")
 
@@ -25,8 +26,8 @@ class TradeManager:
             order_id=main_order_id,
             stop_order_id=stop.get("id") if stop else None,
             target_order_id=target.get("id") if target else None,
-            symbol=symbol,
-            position_id=position_id,
+            symbol=main.get("symbol"),
+            position_id=None,
             qty=1,
             side="BUY" if target and main.get("tradedPrice") < target.get("limitPrice", float('inf')) else "SELL",
             entry_price=main.get("tradedPrice"),

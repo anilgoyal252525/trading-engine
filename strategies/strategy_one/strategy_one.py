@@ -49,7 +49,6 @@ class StrategyOne:
         active_symbol = pos.get("symbol")
         net_qty = pos.get("netQty", 0)
         realized = pos.get("realized_profit", 0)
-        position_id = pos.get("id")
 
         if self.active_order_id and net_qty == 0:  #--- TRADE CLOSE ----- 
             self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25OCT24800CE")
@@ -61,8 +60,6 @@ class StrategyOne:
                 logger.info(f"[{self.strategy_id}] Trade {self.trades_done} PNL: {realized}")
             self.active_order_id = None
         elif self.active_order_id: #--- TRADE OPEN -----  
-            active_trade_data_obj = await self.order_state_manager.add_trade(self.fyers_order_placement, self.active_order_id, position_id, active_symbol)
-            self.active_trade_data_obj: Optional[TradeData] = active_trade_data_obj
             self.ws_mgr.subscribe_symbol("NSE:NIFTY25OCT24800CE", mode="tick")
             logger.info(f"[{self.strategy_id}] Position OPEN: {active_symbol}, Qty: {net_qty}")
 
@@ -82,6 +79,8 @@ class StrategyOne:
                     order_response = await self.fyers_order_placement.place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=1, stop_loss=0.5, take_profit=2.0)
                     self.active_order_id = order_response.get("id")
                     self.trades_done += 1
+                    active_trade_data_obj = await self.order_state_manager.add_trade(self.fyers_order_placement, self.active_order_id)
+                    self.active_trade_data_obj: Optional[TradeData] = active_trade_data_obj
                     logger.info(f"[{self.strategy_id}] Order placed with ID: {self.active_order_id}")
 
     async def tick_consumer(self):
