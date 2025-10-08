@@ -46,13 +46,6 @@ class TradeManager:
 
         return trade_data
 
-    async def update_trailing_history(self, main_order_id: str, new_hist: dict) -> Optional[TradeData]:
-        async with self._lock:
-            trade = self._trades.get(main_order_id)
-            if trade:
-                trade.trailing_history.append(new_hist)
-                return trade
-
     async def close_trade(self, main_order_id: str) -> Optional[TradeData]:
         async with self._lock:
             trade = self._trades.pop(main_order_id, None)
