@@ -32,9 +32,8 @@ class StrategyOne(BaseStrategy):
         self.active_order_id = None
         self.active_trade_data_obj: Optional[TradeData] = None
 
-
     # ------------------ Max Trade Check ------------------
-    def is_max_trade_reached(self):
+    async def is_max_trade_reached(self):
         if self.trades_done >= self.max_trades:
             logger.info(f"[{self.strategy_id}] Max trade limit reached: {self.trades_done}/{self.max_trades}")
             for task in self.tasks:
@@ -56,6 +55,7 @@ class StrategyOne(BaseStrategy):
                 logger.info(f"[{self.strategy_id}] Trade {self.trades_done} closed")
                 logger.info(f"[{self.strategy_id}] Trade {self.trades_done} PNL: {realized}")
             self.active_order_id = None
+            self.active_trade_data_obj: Optional[TradeData] = None
         elif self.active_order_id: #--- TRADE OPEN -----  
             self.ws_mgr.subscribe_symbol("NSE:NIFTY25OCT24800CE", mode="tick")
             logger.info(f"[{self.strategy_id}] Position OPEN: {active_symbol}, Qty: {net_qty}")
@@ -69,7 +69,7 @@ class StrategyOne(BaseStrategy):
         while True:
             symbol, candle = await self.candle_queue.get()
             if self.active_order_id is None:
-                if self.is_max_trade_reached():
+                if await self.is_max_trade_reached():
                     break  
                 condition_met = await self.strategy_logic_manager.check_entry_condition(self.strategy_id, symbol, candle)
                 if condition_met:
