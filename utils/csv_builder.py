@@ -19,17 +19,29 @@ class CSVBuilder:
         self.file_path = ""
         self._lock = asyncio.Lock()
         self._queue = None
+        self._consumer_task = None
+        self._running = False
 
         # Start the background task
-        asyncio.create_task(self._start_consumer())
+        self._consumer_task = asyncio.create_task(self._start_consumer())
+
 
     async def _start_consumer(self):
         self._queue = self.event_bus.subscribe("trade_close")
-        while True:
-            trade: TradeData = await self._queue.get()
-            if trade is None:  # Optional: use None to stop the consumer
-                break
-            await self._log_trade(trade)
+        self._running = True
+        
+        try:
+            while self._running:
+                try:
+                    # Use wait_for with timeout to allow periodic checking of _running flag
+                    trade: TradeData = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+                    await self._log_trade(trade)
+                except asyncio.TimeoutError:
+                    continue  # No trade received, loop continues to check _running flag
+        except asyncio.CancelledError:
+            pass  # Task cancelled, exit gracefully
+        finally:
+            self._running = False
 
 
     async def _log_trade(self, trade: TradeData):
@@ -54,3 +66,13 @@ class CSVBuilder:
 
                 writer.writerow(row_dict)
                 await f.write(output.getvalue())
+
+
+    async def stop(self):
+        self._running = False
+        if self._consumer_task and not self._consumer_task.done():
+            self._consumer_task.cancel()
+            try:
+                await self._consumer_task
+            except asyncio.CancelledError:
+                pass

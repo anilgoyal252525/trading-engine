@@ -74,9 +74,15 @@ class LoggerManager:
 
     async def stop(self):
         if self._worker_task and not self._worker_task.done():
-            await self._queue.join()  # wait until all logs are processed
-            await self._queue.put(None)  # send sentinel
-            await self._worker_task
+            await self._queue.put(None)
+            try:
+                await asyncio.wait_for(self._worker_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                self._worker_task.cancel()
+                try:
+                    await self._worker_task
+                except asyncio.CancelledError:
+                    pass
 
     def _log(self, level: int, msg: str):
         record = logging.LogRecord(

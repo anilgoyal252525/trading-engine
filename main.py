@@ -22,7 +22,7 @@ async def main():
     data_socket = FyersDataBroker()
     position_order_socket = FyersOrderPositionTracker()
     event_bus = EventBus()
-    _ = CSVBuilder(event_bus)
+    csv_builder = CSVBuilder(event_bus)
     ws_mgr = FyersWSManager(event_bus=event_bus, data_broker=data_socket, order_broker=position_order_socket)
     
     await ws_mgr.start()
@@ -44,6 +44,9 @@ async def main():
     logger.info("[Main] Program terminated")
     
     await logger.stop()
+    await csv_builder.stop()
+    
+    print("Exit")
     
     os._exit(0)
 
