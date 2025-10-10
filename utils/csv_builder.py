@@ -25,7 +25,6 @@ class CSVBuilder:
         # Start the background task
         self._consumer_task = asyncio.create_task(self._start_consumer())
 
-
     async def _start_consumer(self):
         self._queue = self.event_bus.subscribe("trade_close")
         self._running = True
@@ -48,25 +47,26 @@ class CSVBuilder:
         today_file = os.path.join(
             self.base_dir, f"{self.prefix}_{datetime.now().strftime('%Y-%m-%d')}.csv"
         )
+
         if self.file_path != today_file:
             self.file_path = today_file
+            self._file_exists = await aiofiles.os.path.exists(self.file_path)
 
         async with self._lock:
-            file_exists = await aiofiles.os.path.exists(self.file_path)
             async with aiofiles.open(self.file_path, mode="a", newline="", encoding="utf-8") as f:
                 row_dict = asdict(trade)
                 output = StringIO()
                 writer = csv.DictWriter(output, fieldnames=row_dict.keys())
 
-                if not file_exists:
+                if not self._file_exists:
                     writer.writeheader()
                     await f.write(output.getvalue())
+                    self._file_exists = True
                     output = StringIO()
                     writer = csv.DictWriter(output, fieldnames=row_dict.keys())
 
                 writer.writerow(row_dict)
                 await f.write(output.getvalue())
-
 
     async def stop(self):
         self._running = False
