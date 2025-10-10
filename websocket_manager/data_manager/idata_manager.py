@@ -4,7 +4,7 @@ from utils.logger import logger
 from utils.error_handling import error_handling
 
 @error_handling
-class BaseWSManager(ABC):
+class IDataManager(ABC):
     def __init__(self):
         self.symbols = {}
         self._running = False

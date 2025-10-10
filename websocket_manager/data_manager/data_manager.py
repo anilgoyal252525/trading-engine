@@ -4,19 +4,19 @@ from utils.error_handling import error_handling
 from .tick_processor import TickProcessor
 from .candle_builder import CandleBuilder
 from websocket_manager.fyers_broker.ibroker import IBroker
-from .base_interface import BaseWSManager
+from .idata_manager import IDataManager
 from centeral_hub.event_bus import EventBus
 
 @error_handling
-class FyersWSManager(BaseWSManager):
-    def __init__( self, event_bus: EventBus, data_broker: IBroker, order_broker: IBroker = None, tick_processor=None, candle_builder=None ):
+class DataManager(IDataManager):
+    def __init__( self, event_bus: EventBus, data_broker: IBroker, order_broker: IBroker = None, tick_processor = TickProcessor, candle_builder = CandleBuilder):
         self.data_broker = data_broker
         self.order_broker = order_broker
         self.event_bus = event_bus
         self.symbols = {}
         self._running = False
-        self.tick_processor = tick_processor or TickProcessor(event_bus=event_bus)
-        self.candle_builder = candle_builder or CandleBuilder(self.tick_processor, event_bus)
+        self.tick_processor = tick_processor 
+        self.candle_builder = candle_builder 
         self.tick_queue = asyncio.Queue()
 
     async def start(self):

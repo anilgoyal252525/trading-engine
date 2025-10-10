@@ -1,13 +1,15 @@
 import asyncio
 from websocket_manager.fyers_broker.fyers_data_websocket import FyersDataBroker
 from websocket_manager.fyers_broker.fyers_position_webscoket import FyersOrderPositionTracker
-from websocket_manager.data_manager.base import FyersWSManager
+from websocket_manager.data_manager.data_manager import DataManager
 from strategies.strategy_one.strategy_one import StrategyOne
 from utils.logger import logger
 from utils.error_handling import error_handling
 import os
 from centeral_hub.event_bus import EventBus
 from utils.csv_builder import CSVBuilder
+from websocket_manager.data_manager.tick_processor import TickProcessor
+from websocket_manager.data_manager.candle_builder import CandleBuilder
 
 @error_handling
 async def main():
@@ -23,7 +25,9 @@ async def main():
     position_order_socket = FyersOrderPositionTracker()
     event_bus = EventBus()
     csv_builder = CSVBuilder(event_bus)
-    ws_mgr = FyersWSManager(event_bus=event_bus, data_broker=data_socket, order_broker=position_order_socket)
+    tick_processor = TickProcessor(event_bus=event_bus)
+    candle_builder = CandleBuilder(tick_processor=tick_processor, event_bus=event_bus)
+    ws_mgr = DataManager(event_bus=event_bus, data_broker=data_socket, order_broker=position_order_socket, tick_processor=tick_processor, candle_builder=candle_builder)
     
     await ws_mgr.start()
     
