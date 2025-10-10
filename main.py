@@ -1,15 +1,15 @@
 import asyncio
-from websocket_manager.fyers_broker.fyers_data_websocket import FyersDataBroker
-from websocket_manager.fyers_broker.fyers_position_webscoket import FyersOrderPositionTracker
-from websocket_manager.data_manager.data_manager import DataManager
+from broker.fyers_broker.fyers_data_websocket import FyersDataBroker
+from broker.fyers_broker.fyers_position_webscoket import FyersOrderPositionTracker
+from data_manager.data_manager import DataManager
 from strategies.strategy_one.strategy_one import StrategyOne
 from utils.logger import logger
 from utils.error_handling import error_handling
 import os
 from centeral_hub.event_bus import EventBus
 from utils.csv_builder import CSVBuilder
-from websocket_manager.data_manager.tick_processor import TickProcessor
-from websocket_manager.data_manager.candle_builder import CandleBuilder
+from data_manager.tick_processor import TickProcessor
+from data_manager.candle_builder import CandleBuilder
 
 @error_handling
 async def main():
@@ -37,7 +37,7 @@ async def main():
     logger.info("ALL RESOURCES SUBSCRIBED")
     
     # Run strategy
-    strategy = StrategyOne(event_bus, "strategy_one", ws_mgr, loop, max_trades=1)
+    strategy = StrategyOne(event_bus, "strategy_one", ws_mgr, loop, max_trades=2)
     await strategy.run()
     
     # ws_mgr.unsubscribe_symbol("NSE:NIFTY50-INDEX")

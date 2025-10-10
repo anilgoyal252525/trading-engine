@@ -3,7 +3,7 @@ from utils.logger import logger
 from utils.error_handling import error_handling
 from .tick_processor import TickProcessor
 from .candle_builder import CandleBuilder
-from websocket_manager.fyers_broker.ibroker import IBroker
+from broker.fyers_broker.ibroker import IBroker
 from .idata_manager import IDataManager
 from centeral_hub.event_bus import EventBus
 
