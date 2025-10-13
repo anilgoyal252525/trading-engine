@@ -58,38 +58,32 @@ class DataManager(IDataManager):
             if self._running and self.data_broker.is_connected():
                 self.data_broker.unsubscribe([symbol])
             del self.symbols[symbol]
-    
+
     async def _process_broker_msg_queue(self):
         while self._running:
-            raw_data = await self.tick_queue.get()
-            if not raw_data:
+            if not (raw_data := await self.tick_queue.get()):
                 continue
 
-            msg_type = raw_data.get("type")
-            message = raw_data.get("data")
-
-            if msg_type == "broker_raw_ticks":
-                symbol = message.get("symbol")
-                ts = message.get("exch_feed_time")
-                volume = message.get("volume", 0)
-
-                if not symbol or symbol not in self.symbols:
-                    continue
-                cfg = self.symbols[symbol]
-
-                tick = Tick(
-                    symbol=symbol,
-                    ltp=message.get('ltp'),
-                    timestamp=ts,
-                    datetime=datetime.fromtimestamp(ts),
-                    volume=volume
-                )
-                
-                if cfg["mode"] == "tick":
-                    await self.tick_processor.process_tick(tick, publish=True)
-                else:
-                    if await self.tick_processor.process_tick(tick, publish=False):
+            match raw_data.get("type"):
+                case "broker_raw_ticks":
+                    message = raw_data["data"]
+                    if not (symbol := message.get("symbol")) or symbol not in self.symbols:
+                        continue
+                    
+                    cfg = self.symbols[symbol]
+                    tick = Tick(
+                        symbol=symbol,
+                        ltp=message.get('ltp'),
+                        timestamp=(ts := message.get("exch_feed_time")),
+                        datetime=datetime.fromtimestamp(ts),
+                        volume=message.get("volume", 0)
+                    )
+                    
+                    if cfg["mode"] == "tick":
+                        await self.tick_processor.process_tick(tick, publish=True)
+                    elif await self.tick_processor.process_tick(tick, publish=False):
                         await self.candle_builder.process_candle_tick(tick, cfg["timeframe"])
+                
+                case "positions":
+                    await self.event_bus.publish("fyers_position_update", raw_data["data"])
 
-            elif msg_type == "positions":
-                await self.event_bus.publish("fyers_position_update", message)
