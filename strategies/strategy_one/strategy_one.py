@@ -51,8 +51,7 @@ class StrategyOne(BaseStrategy):
         if self.active_order_id and net_qty == 0:  #--- TRADE CLOSE ----- 
             self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25OCT24800CE")
             await self.order_state_manager.close_trade(self.active_order_id)
-            logger.info(f"[{self.strategy_id}] Trade {self.trades_done} closed")
-            logger.info(f"[{self.strategy_id}] Trade {self.trades_done} PNL: {realized}")
+            logger.info(f"[{self.strategy_id}] | Trade {self.trades_done} closed | PNL: {realized}")
             self.active_order_id = None
             self.active_trade_data_obj: Optional[TradeData] = None
         elif self.active_order_id: #--- TRADE OPEN -----  
@@ -61,9 +60,10 @@ class StrategyOne(BaseStrategy):
 
 
     async def update_state_after_order(self, active_order_id):
-        logger.info(f"[{self.strategy_id}] Order placed with ID: {active_order_id}")
         self.trades_done += 1
-        active_trade_data_obj = await self.order_state_manager.add_trade(self.fyers_order_placement, self.active_order_id)
+        logger.info(f"[{self.strategy_id}] Order placed with ID: {active_order_id}")
+        main, stop, target = await self.fyers_order_placement.get_main_stop_target_orders(active_order_id)
+        active_trade_data_obj = await self.order_state_manager.add_trade(self.trades_done, self.active_order_id, main, stop, target)
         self.active_trade_data_obj: Optional[TradeData] = active_trade_data_obj
 
     # ------------------ Consumers ------------------

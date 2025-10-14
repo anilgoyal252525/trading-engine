@@ -44,3 +44,14 @@ class Candle:
         self.low = min(self.low, ltp)
         self.close = ltp
         self.volume += volume
+
+#entry_price = 100
+#initial_sl = 95
+
+@dataclass(slots=True)
+class TraillingLevels:
+    initial_sl: float   
+    threshold: float  # tick > entry_price + 10 = new sl   
+    new_sl: float     
+    msg: str            
+    triggered: bool = False  

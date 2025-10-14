@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, Optional
+from typing import Dict
 from utils.error_handling import error_handling
 from data_model.data_model import TradeData
 
@@ -9,18 +9,9 @@ class TradeManager:
         self.event_bus = event_bus
         self.strategy_id = strategy_id
         self._trades: Dict[str, TradeData] = {}  # in-memory trades for this strategy
-        self._trade_counter = 0
         self._lock = asyncio.Lock()
 
-    async def add_trade(self, fyers_order_placement, main_order_id: str) -> TradeData:
-        main, stop, target = await fyers_order_placement.get_main_stop_target_orders(main_order_id)
-
-        if not main:
-            raise ValueError(f"No main order found for {main_order_id}")
-
-        self._trade_counter += 1
-        trade_no = self._trade_counter
-
+    async def add_trade(self, trade_no, main_order_id: str, main, stop, target) -> TradeData:
         trade_data = TradeData(
             trade_no=trade_no,
             strategy_id=self.strategy_id,
