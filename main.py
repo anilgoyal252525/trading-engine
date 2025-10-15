@@ -6,7 +6,7 @@ from strategies.strategy_one.strategy_one import StrategyOne
 from utils.logger import logger
 from utils.error_handling import error_handling
 import os
-from centeral_hub.event_bus import EventBus
+from central_hub.event_bus import EventBus
 from utils.csv_builder import CSVBuilder
 from data_manager.tick_processor import TickProcessor
 from data_manager.candle_builder import CandleBuilder

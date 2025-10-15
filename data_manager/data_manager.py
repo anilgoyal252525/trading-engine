@@ -7,7 +7,7 @@ from datetime import datetime
 from .candle_builder import CandleBuilder
 from broker.fyers_broker.ibroker import IBroker
 from .idata_manager import IDataManager
-from centeral_hub.event_bus import EventBus
+from central_hub.event_bus import EventBus
 
 @error_handling
 class DataManager(IDataManager):
