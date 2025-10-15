@@ -3,7 +3,7 @@ import asyncio
 from data_model.data_model import TradeData
 from strategies.strategy_interface import BaseStrategy
 from strategies.strategy_one.logic_manager import StrategyLogicManager
-from strategies.strategy_one.trailling_manager import TrailingManager
+from strategies.strategy_one.trailing_manager import TrailingManager
 from order_active_state_manager.order_state_manager import TradeManager
 from order_placement_manager.fyers_order_placement import FyersOrderPlacement
 from utils.error_handling import error_handling
