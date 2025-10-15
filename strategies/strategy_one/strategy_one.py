@@ -105,8 +105,8 @@ class StrategyOne(BaseStrategy):
     # ------------------ Run ------------------
     async def run(self):
         async with asyncio.TaskGroup() as tg:
-            candle_task = tg.create_task(self.candle_consumer())
-            tick_task = tg.create_task(self.tick_consumer())
-            broker_postion_task = tg.create_task(self.broker_postion_consumer())
-            
-            self.tasks = [candle_task, tick_task, broker_postion_task]
+            self.tasks = [
+                tg.create_task(self.candle_consumer()),
+                tg.create_task(self.tick_consumer()),
+                tg.create_task(self.broker_postion_consumer()),
+            ]
