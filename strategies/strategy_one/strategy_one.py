@@ -21,15 +21,15 @@ class StrategyOne(BaseStrategy):
         self.order_state_manager = TradeManager(event_bus, strategy_id)
         self.strategy_logic_manager = StrategyLogicManager()
         self.fyers_order_placement = FyersOrderPlacement()
-        self.trailling_manager = TrailingManager()
+        self.trailing_manager = TrailingManager()
 
         self.candle_queue = self.event_bus.subscribe("candle")
         self.tick_queue = self.event_bus.subscribe("tick")
         self.trade_close_queue = self.event_bus.subscribe("fyers_position_update")
 
         self.trades_done = 0
-        self.active_order_id = None
-        self.active_trade_data_obj: TradeData = None
+        self.active_trade_data_obj: TradeData | None = None
+        self.tasks = []
 
     # ------------------ Max Trade Check ------------------
     async def is_max_trade_reached(self):
@@ -47,55 +47,64 @@ class StrategyOne(BaseStrategy):
         net_qty = pos.get("netQty", 0)
         realized = pos.get("realized_profit", 0)
 
-        if self.active_order_id and net_qty == 0:  #--- TRADE CLOSE ----- 
-            self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25OCT24800CE")
-            await self.order_state_manager.close_trade(self.active_order_id)
-            logger.info(f"[{self.strategy_id}] | Trade {self.trades_done} closed | PNL: {realized}")
-            self.active_order_id = None
-            self.active_trade_data_obj: TradeData = None
-        elif self.active_order_id: #--- TRADE OPEN -----  
-            logger.info(f"[{self.strategy_id}] Position OPEN: {active_symbol}, Qty: {net_qty}")
+        if net_qty == 0:  #--- TRADE CLOSE ----- 
+            if self.active_trade_data_obj.order_id:
+                self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25OCT24800CE")
+                await self.order_state_manager.close_trade(self.active_trade_data_obj.order_id)
+                logger.info(f"[{self.strategy_id}] | Trade {self.trades_done} closed | PNL: {realized}")
+                self.active_trade_data_obj = None
+            else:
+                logger.info("No Order Found")
 
-
+    # ------------------ Update Trade State ------------------
     async def update_state_after_order(self, active_order_id):
+        logger.info(f"Placed {active_order_id}")
         self.trades_done += 1
-        logger.info(f"[{self.strategy_id}] Order placed with ID: {active_order_id}")
         main, stop, target = await self.fyers_order_placement.get_main_stop_target_orders(active_order_id)
         self.ws_mgr.subscribe_symbol("NSE:NIFTY25OCT24800CE", mode="tick")
-        active_trade_data_obj = await self.order_state_manager.add_trade(self.trades_done, self.active_order_id, main, stop, target)
-        self.active_trade_data_obj: TradeData = active_trade_data_obj
+        self.active_trade_data_obj = await self.order_state_manager.add_trade(
+            self.trades_done, active_order_id, main, stop, target
+        )
+        logger.info(f"Order Placed {self.active_trade_data_obj.order_id}")
+        logger.info(f"Position Opened {self.active_trade_data_obj.symbol}")
 
     # ------------------ Consumers ------------------
     async def candle_consumer(self):
-        # Skip candle
+        # Skip first candle
         _ = await self.candle_queue.get()
         logger.info("skipped candle")
 
         while True:
             candle = await self.candle_queue.get()
-            if self.active_order_id is None:
+            if self.active_trade_data_obj is None:
                 if await self.is_max_trade_reached():
                     break  
-                condition_met = await self.strategy_logic_manager.check_entry_condition(self.strategy_id, candle.symbol, candle)
+                condition_met = await self.strategy_logic_manager.check_entry_condition(
+                    self.strategy_id, candle.symbol, candle
+                )
                 if condition_met:
-                    order_response = await self.fyers_order_placement.place_order(symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=1, stop_loss=0.5, take_profit=2.0)
+                    order_response = await self.fyers_order_placement.place_order(
+                        symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=1, stop_loss=0.5, take_profit=2.0
+                    )
                     if order_response.get('code') == 1101:
-                        self.active_order_id = order_response.get("id")
-                        await self.update_state_after_order(self.active_order_id)
+                        await self.update_state_after_order(order_response.get("id"))
+                    else:
+                        logger.info("Order is Not Placed")
 
     async def tick_consumer(self):
         while True:
             tick = await self.tick_queue.get()
-            if self.active_trade_data_obj.trailing_levels != []:
-                await TrailingManager.start_trailing_sl(
-                    self.fyers_order_placement,
-                    self.active_trade_data_obj.trailing_levels,
-                    self.active_trade_data_obj.stop_order_id, 
-                    self.active_trade_data_obj.qty,
-                    tick
-                )  
-            else:
-                logger.info("Trailling levels was blank")
+            if self.active_trade_data_obj:
+                if self.active_trade_data_obj and self.active_trade_data_obj.trailing_levels:
+                    await self.trailing_manager.start_trailing_sl(
+                        self.fyers_order_placement,
+                        self.active_trade_data_obj.trailing_levels,
+                        self.active_trade_data_obj.stop_order_id, 
+                        self.active_trade_data_obj.qty,
+                        tick
+                    )  
+                else:
+                    logger.info("Trailing levels are blank or no active trade")
 
     async def broker_postion_consumer(self):
         while True:
