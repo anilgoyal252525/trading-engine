@@ -1,6 +1,6 @@
 import asyncio
-from utils.logger import logger
-from utils.error_handling import error_handling
+from common_utils.logger import logger
+from common_utils.error_handling import error_handling
 from .tick_processor import TickProcessor
 from data_model.data_model import Tick
 from datetime import datetime

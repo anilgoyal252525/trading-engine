@@ -1,7 +1,7 @@
 from fyers_apiv3 import fyersModel
 import os
 from dotenv import load_dotenv
-from utils.error_handling import error_handling
+from common_utils.error_handling import error_handling
 
 load_dotenv()
 

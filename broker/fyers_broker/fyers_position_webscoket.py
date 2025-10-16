@@ -1,7 +1,7 @@
 from fyers_apiv3.FyersWebsocket import order_ws
 import asyncio
-from utils.error_handling import error_handling
-from utils.logger import logger
+from common_utils.error_handling import error_handling
+from common_utils.logger import logger
 from dotenv import load_dotenv
 import os
 from .ibroker import IBroker

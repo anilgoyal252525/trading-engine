@@ -3,7 +3,7 @@ from datetime import date
 import json
 import os
 from dotenv import load_dotenv
-from utils.logger import logger
+from common_utils.logger import logger
 
 load_dotenv()
 

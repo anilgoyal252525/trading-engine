@@ -4,8 +4,8 @@ import asyncio
 import json
 from dotenv import load_dotenv
 from fyers_apiv3.FyersWebsocket import data_ws
-from utils.logger import logger
-from utils.error_handling import error_handling
+from common_utils.logger import logger
+from common_utils.error_handling import error_handling
 from .ibroker import IBroker
 
 load_dotenv()

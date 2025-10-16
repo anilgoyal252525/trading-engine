@@ -5,7 +5,7 @@ import asyncio
 import csv
 from io import StringIO
 from datetime import datetime
-from utils.error_handling import error_handling
+from common_utils.error_handling import error_handling
 from data_model.data_model import TradeData
 from dataclasses import asdict
 

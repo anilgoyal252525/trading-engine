@@ -4,7 +4,7 @@ import functools
 import traceback
 import time
 from typing import Any, Callable, Optional
-from utils.logger import logger
+from common_utils.logger import logger
 
 class ErrorHandling:
     def __init__(self, retries: int = 0, re_raise: bool = False, backoff: float = 0, exclude: tuple[str, ...] = ()):

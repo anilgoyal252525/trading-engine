@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict
-from utils.error_handling import error_handling
+from common_utils.error_handling import error_handling
 from data_model.data_model import TradeData
 
 @error_handling

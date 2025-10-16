@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
-from utils.logger import logger
-from utils.error_handling import error_handling
+from common_utils.logger import logger
+from common_utils.error_handling import error_handling
 
 @error_handling
 class IDataManager(ABC):

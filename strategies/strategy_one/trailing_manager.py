@@ -1,5 +1,5 @@
-from utils.logger import logger
-from utils.error_handling import error_handling
+from common_utils.logger import logger
+from common_utils.error_handling import error_handling
 from data_model.data_model import Tick
 
 @error_handling
