@@ -15,7 +15,7 @@ async def main():
     
     loop = asyncio.get_running_loop()
     
-    await logger.start(loop)
+    await logger.start()
     
     logger.info("ALGO STARTED")
 
