@@ -4,7 +4,7 @@ from broker.fyers_broker.fyers_position_webscoket import FyersOrderPositionTrack
 from data_manager.data_manager import DataManager
 from strategies.strategy_one.strategy_one import StrategyOne
 from common_utils.csv_builder import CSVBuilder
-from data_manager.candle_builder import CandleBuilder
+from data_manager.candle_builder.candle_builder import CandleBuilder
 from central_hub.event_bus import EventBus
 from common_utils.error_handling import error_handling
 from common_utils.logger import logger

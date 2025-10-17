@@ -3,7 +3,7 @@ from common_utils.logger import logger
 from common_utils.error_handling import error_handling
 from data_model.data_model import Tick
 from datetime import datetime
-from .candle_builder import CandleBuilder
+from .candle_builder.candle_builder import CandleBuilder
 from broker.fyers_broker.ibroker import IBroker
 from .idata_manager import IDataManager
 from central_hub.event_bus import EventBus
