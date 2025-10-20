@@ -1,4 +1,5 @@
 import asyncio
+from broker.fyers_broker.fyers_token import FyersTokenManager
 from broker.fyers_broker.fyers_data_websocket import FyersDataBroker
 from broker.fyers_broker.fyers_position_webscoket import FyersOrderPositionTracker
 from data_manager.data_manager import DataManager
@@ -20,6 +21,8 @@ async def main():
     logger.info("ALGO STARTED")
 
     # Initialize 
+    fyers = FyersTokenManager()
+    fyers.get_access_token()
     data_socket = FyersDataBroker()
     position_order_socket = FyersOrderPositionTracker()
     event_bus = EventBus()
