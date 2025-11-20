@@ -20,7 +20,7 @@ class FyersOrderPositionTracker(IBroker):
 
         self.access_token = f"{client_id}:{token}"
         self._loop: asyncio.AbstractEventLoop = None
-        self._queue: asyncio.Queue = None     # <--- initialize attribute
+        self._queue: asyncio.Queue = None     
         self._connected = False
         self._task = None
 
@@ -32,11 +32,15 @@ class FyersOrderPositionTracker(IBroker):
             on_close=self._on_close,
             on_error=self._on_error,
             on_positions=self._on_position,
+            on_orders=self._on_order,
+            on_trades=self._on_trade,
         )
 
     def _on_open(self):
         self._connected = True
         self.fyers.subscribe(data_type="OnPositions")
+        self.fyers.subscribe(data_type="OnOrders")
+        self.fyers.subscribe(data_type="OnTrades")
 
     def _on_close(self, msg):
         self._connected = False
@@ -55,6 +59,19 @@ class FyersOrderPositionTracker(IBroker):
             if self._queue and self._loop:
                 asyncio.run_coroutine_threadsafe(self._queue.put({"type": "positions_data", "data": pos}), self._loop)
 
+    def _on_order(self, msg):
+        orders = msg.get("orders")
+        if not orders:
+            return
+
+        orders_list = orders if isinstance(orders, list) else [orders]
+        for order in orders_list:
+            if self._queue and self._loop:
+                asyncio.run_coroutine_threadsafe(self._queue.put({"type": "orders_data", "data": order}), self._loop)
+    
+    def _on_trade(self, msg):
+        pass
+    
     async def connect(self, queue: asyncio.Queue = None):
         self._queue = queue
         self._loop = asyncio.get_running_loop()

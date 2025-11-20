@@ -91,4 +91,6 @@ class DataManager(IDataManager):
                 
                 case "positions_data":
                     await self.event_bus.publish("fyers_position_update", raw_data["data"])
+                case "orders_data":
+                    await self.event_bus.publish("fyers_order_update", raw_data["data"])
 

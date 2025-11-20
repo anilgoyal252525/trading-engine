@@ -14,9 +14,9 @@ class TradeData:
     qty: int
     side: str
     entry_price: Optional[float]
-    initial_stop_price: Optional[float]
+    stop_price: Optional[float]
     target_price: Optional[float]
-    initial_sl_points: Optional[float]
+    sl_points: Optional[float]
     target_points: Optional[float]
     trailing_levels: List[Dict[str, Any]]
 

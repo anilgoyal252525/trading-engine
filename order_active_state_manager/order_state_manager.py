@@ -23,9 +23,9 @@ class TradeManager:
             qty=main.get("qty"),
             side="BUY" if target and main.get("tradedPrice") < target.get("limitPrice", float('inf')) else "SELL",
             entry_price=main.get("tradedPrice"),
-            initial_stop_price=stop.get("stopPrice") if stop else None,
+            stop_price=stop.get("stopPrice") if stop else None,
             target_price=target.get("limitPrice") if target else None,
-            initial_sl_points=(stop.get("stopPrice") - main.get("tradedPrice")) if stop else None,
+            sl_points=(stop.get("stopPrice") - main.get("tradedPrice")) if stop else None,
             target_points=(target.get("limitPrice") - main.get("tradedPrice")) if target else None,
             trailing_levels=[
                 {"threshold": main.get("tradedPrice") + 3, "new_stop": main.get("tradedPrice") + 0.1, "msg": "breakeven", "hit": False},
