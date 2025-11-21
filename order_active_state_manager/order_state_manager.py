@@ -10,9 +10,10 @@ class TradeManager:
         self.strategy_id = strategy_id
         self._trades: Dict[str, TradeData] = {}  # in-memory trades for this strategy
         self._lock = asyncio.Lock()
+        self._current_active_main_order_id: str | None = None
 
     
-    async def add_trade(self, trade_no: int, strategy_id: str, main_order_id: str):
+    async def add_trade(self, trade_no, strategy_id, main_order_id):
         trade_data = TradeData(
             trade_no=trade_no,
             strategy_id=self.strategy_id,
@@ -21,6 +22,7 @@ class TradeManager:
 
         async with self._lock:
             self._trades[main_order_id] = trade_data
+            self._current_active_main_order_id = main_order_id
 
         return trade_data
 
@@ -63,7 +65,32 @@ class TradeManager:
                     setattr(activeTrade, key, value)
 
             return activeTrade
-    
+
+
+    async def get_active_trade(self):
+        async with self._lock:
+            if not self._current_active_main_order_id:
+                return None
+            return self._trades.get(self._current_active_main_order_id)
+
+
+    async def get_active_trade_details(self, fields: list[str]) -> dict | None:
+        async with self._lock:
+            if not self._current_active_main_order_id:
+                return None
+            
+            trade = self._trades.get(self._current_active_main_order_id)
+            if not trade:
+                return None
+
+            result = {}
+            for f in fields:
+                if hasattr(trade, f):
+                    result[f] = getattr(trade, f)
+                else:
+                    result[f] = None   # optional: or skip
+            return result
+
     
     async def close_trade(self, main_order_id: str) -> None:
         async with self._lock:

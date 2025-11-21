@@ -29,7 +29,6 @@ class StrategyOne():
 
         self.trades_done = 0
         self.active_trade_data_obj: TradeData | None = None
-        self.active_trades = []
         self.tasks = []
 
     # ------------------ Max Trade Check ------------------
@@ -66,7 +65,8 @@ class StrategyOne():
 
         while True:
             candle = await self.candle_queue.get()
-            if self.active_trade_data_obj is None:
+            active_trade = await self.order_state_manager.get_active_trade()
+            if active_trade is None:
                 if await self.is_max_trade_reached():
                     break  
                 condition_met = await self.strategy_logic_manager.check_entry_condition(
@@ -96,13 +96,15 @@ class StrategyOne():
     async def tick_consumer(self):
         while True:
             tick = await self.tick_queue.get()
-            trade = self.active_trade_data_obj
-            if trade and trade.trailing_levels:
+            details = await self.order_state_manager.get_active_trade_details(
+                ["trailing_levels", "stop_order_id", "qty"]
+            )
+            if details:
                 await self.trailing_manager.start_trailing_sl(
                     self.fyers_order_placement,
-                    trade.trailing_levels,
-                    trade.stop_order_id, 
-                    trade.qty,
+                    details["trailing_levels"],
+                    details["stop_order_id"], 
+                    details["qty"],
                     tick
                 )
             else:
