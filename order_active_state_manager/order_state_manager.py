@@ -97,3 +97,4 @@ class TradeManager:
             trade = self._trades.pop(main_order_id, None)
             if trade:
                 await self.event_bus.publish("trade_close", trade)
+                self._current_active_main_order_id = None
