@@ -96,15 +96,13 @@ class StrategyOne():
     async def tick_consumer(self):
         while True:
             tick = await self.tick_queue.get()
-            details = await self.order_state_manager.get_active_trade_details(
-                ["trailing_levels", "stop_order_id", "qty"]
-            )
-            if details:
+            active_trade = await self.order_state_manager.get_active_trade()
+            if active_trade:
                 await self.trailing_manager.start_trailing_sl(
                     self.fyers_order_placement,
-                    details["trailing_levels"],
-                    details["stop_order_id"], 
-                    details["qty"],
+                    active_trade.trailing_levels,
+                    active_trade.stop_order_id, 
+                    active_trade.qty,
                     tick
                 )
             else:

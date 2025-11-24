@@ -73,24 +73,6 @@ class TradeManager:
                 return None
             return self._trades.get(self._current_active_main_order_id)
 
-
-    async def get_active_trade_details(self, fields: list[str]) -> dict | None:
-        async with self._lock:
-            if not self._current_active_main_order_id:
-                return None
-            
-            trade = self._trades.get(self._current_active_main_order_id)
-            if not trade:
-                return None
-
-            result = {}
-            for f in fields:
-                if hasattr(trade, f):
-                    result[f] = getattr(trade, f)
-                else:
-                    result[f] = None   # optional: or skip
-            return result
-
     
     async def close_trade(self, main_order_id: str) -> None:
         async with self._lock:
