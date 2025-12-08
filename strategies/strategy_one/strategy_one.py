@@ -138,6 +138,7 @@ class StrategyOne(BaseStrategy):
             return True
         return False
 
+    
     # ------------------ Consumers ------------------
     async def candle_consumer(self):
         # Skip first candle
@@ -150,9 +151,11 @@ class StrategyOne(BaseStrategy):
             if active_trade is None:
                 if await self.is_max_trade_reached():
                     break  
+                
                 condition_met = await self.StrategyLogicManager.check_entry_condition(
                     self.strategy_id, candle.symbol, candle
                 )
+                
                 if condition_met:
                     order_response = await self.FyersOrderPlacement.place_order(
                         symbol="NSE:IDEA-EQ", qty=1, order_type=2, side=1, stop_loss=0.5, take_profit=2.0
