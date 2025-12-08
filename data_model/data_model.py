@@ -10,14 +10,11 @@ class TradeData:
     stop_order_id: Optional[str] = None
     target_order_id: Optional[str] = None
     symbol: Optional[str] = None
-    position_id: Optional[str] = None
     qty: Optional[int] = None
     side: Optional[str] = None
     entry_price: Optional[float] = None
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
-    sl_points: Optional[float] = None
-    target_points: Optional[float] = None
     trailing_levels: List[Dict[str, Any]] | None = None
 
 @dataclass(slots=True)

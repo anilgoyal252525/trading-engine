@@ -26,34 +26,8 @@ class ActiveTradesManager:
 
         return trade_data
 
-    
-    async def compute_trade_fields(self, main, stop, target) -> Dict:
-        if not main:
-            return {}
 
-        entry = main.get("tradedPrice")
-        stop_price = stop.get("stopPrice") if stop else None
-        target_price = target.get("limitPrice") if target else None
-
-        return {
-            "stop_order_id": stop.get("id") if stop else None,
-            "target_order_id": target.get("id") if target else None,
-            "symbol": main.get("symbol"),
-            "qty": main.get("qty"),
-            "side": "BUY" if (target and entry < target_price) else "SELL",
-            "entry_price": entry,
-            "stop_price": stop_price,
-            "target_price": target_price,
-            "sl_points": (stop_price - entry) if stop_price else None,
-            "target_points": (target_price - entry) if target_price else None,
-            "trailing_levels": [
-                {"threshold": entry + 3, "new_stop": entry + 0.1, "msg": "breakeven", "hit": False},
-                {"threshold": entry + 10, "new_stop": entry + 0.2, "msg": "1st trail locked profit", "hit": False},
-            ] if entry else [],
-        }
-
-
-    async def update_trade(self, main_order_id: str, update: Dict) -> TradeData | None:
+    async def update_trade(self, main_order_id: str, update: Dict) -> None:
         async with self._lock:
             activeTrade = self._trades.get(main_order_id)
             if not activeTrade:
@@ -63,8 +37,6 @@ class ActiveTradesManager:
             for key, value in update.items():
                 if hasattr(activeTrade, key):
                     setattr(activeTrade, key, value)
-
-            return activeTrade
 
 
     async def get_active_trade(self):

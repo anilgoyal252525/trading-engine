@@ -33,21 +33,98 @@ class StrategyOne(BaseStrategy):
         self.tasks = []
         self.pending_order_queue = asyncio.Queue()
 
+
     async def process_orders(self, order, active_trade):
         parent_id = order.get("parentId")
         status = order.get("status")
         order_id = order.get("id")
         order_type = order.get("type")
 
+        # ---------------- Parent Order updates ----------------
         if order_id == active_trade.order_id:  # Parent Order updates
-            if status == 2:
-                logger.info(f"Order Filled, ID: {order_id}") 
-                self.ws_mgr.subscribe_symbol("NSE:NIFTY25D0926000CE", mode="tick")           
+            if order_type == 2 and status == 2:  # parent order filled at market price
+                logger.info(f"Order Filled, ID: {order_id}")
 
-        if parent_id == active_trade.order_id: # Child order updates
+                # only set these if they are not already present in the stored trade
+                current = await self.ActiveTradesManager.get_active_trade()
+                fields_to_set = {}
+                if not getattr(current, "symbol", None):
+                    fields_to_set["symbol"] = order.get("symbol")
+                if not getattr(current, "qty", None):
+                    fields_to_set["qty"] = order.get("qty")
+                if not getattr(current, "side", None):
+                    fields_to_set["side"] = order.get("side")
+                if not getattr(current, "entry_price", None):
+                    # keep your original choice: limitPrice
+                    fields_to_set["entry_price"] = order.get("limitPrice")
+
+                if fields_to_set:
+                    await self.ActiveTradesManager.update_trade(active_trade.order_id, fields_to_set)
+
+                # --- NEW: compute trailing_levels and save if not present ---
+                # determine entry price (prefer already-saved, else the parent order value)
+                current = await self.ActiveTradesManager.get_active_trade()
+                entry = getattr(current, "entry_price", None) or order.get("limitPrice") or order.get("tradedPrice")
+                if entry is not None:
+                    # Only set trailing_levels if not already present
+                    if not getattr(current, "trailing_levels", None):
+                        # Build trailing levels relative to entry
+                        trailing = [
+                            {
+                                "threshold": float(entry) + 3.0,
+                                "new_stop": float(entry) + 0.1,
+                                "msg": "breakeven",
+                                "hit": False
+                            },
+                            {
+                                "threshold": float(entry) + 10.0,
+                                "new_stop": float(entry) + 0.2,
+                                "msg": "1st trail locked profit",
+                                "hit": False
+                            }
+                        ]
+                        await self.ActiveTradesManager.update_trade(
+                            active_trade.order_id,
+                            {"trailing_levels": trailing}
+                        )
+
+                self.ws_mgr.subscribe_symbol("NSE:NIFTY25D1626000CE", mode="tick")
+
+        # ---------------- Child order updates ----------------
+        if parent_id == active_trade.order_id:  # Child order updates
+
+            # STOP child (type == 4) pending
+            if order_type == 4 and status == 6:  # stop order
+
+                current = await self.ActiveTradesManager.get_active_trade()
+                # only set stop fields if not already present
+                if not getattr(current, "stop_order_id", None) and not getattr(current, "stop_price", None):
+                    await self.ActiveTradesManager.update_trade(
+                        active_trade.order_id,
+                        {
+                            "stop_order_id": order_id,
+                            "stop_price": order.get("stopPrice")
+                        }
+                    )
+
+            # TARGET child (type == 1) pending
+            if order_type == 1 and status == 6:  # target order
+
+                current = await self.ActiveTradesManager.get_active_trade()
+                # only set target fields if not already present
+                if not getattr(current, "target_order_id", None) and not getattr(current, "target_price", None):
+                    await self.ActiveTradesManager.update_trade(
+                        active_trade.order_id,
+                        {
+                            "target_order_id": order_id,
+                            "target_price": order.get("limitPrice")
+                        }
+                    )
+
+            # Any child filled -> close trade (keep existing behavior)
             if status == 2:
-                logger.info(f"Child Order Filled, ID: {order_id} for Parent ID: {parent_id}")
-                self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25D0926000CE")
+                logger.info(f"Child Order Filled, Child Order ID: {order_id} for Parent ID: {parent_id}")
+                self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25D1626000CE")
                 await self.ActiveTradesManager.close_trade(active_trade.order_id)
                 logger.info(f"[{self.strategy_id}] | Trade {self.trades_done} closed")
 
@@ -64,7 +141,7 @@ class StrategyOne(BaseStrategy):
     # ------------------ Consumers ------------------
     async def candle_consumer(self):
         # Skip first candle
-        # _ = await self.candle_queue.get()
+        _ = await self.candle_queue.get()
         logger.info("skipped candle")
 
         while True:
@@ -85,16 +162,11 @@ class StrategyOne(BaseStrategy):
                         await self.ActiveTradesManager.add_trade(
                             self.trades_done, self.strategy_id, order_response.get("id") 
                         )
-
-                        main, stop, target = await self.FyersOrderPlacement.get_main_stop_target_orders(order_response.get("id"))
-                        trade_details = await self.ActiveTradesManager.compute_trade_fields(main, stop, target)
-                        
-                        await self.ActiveTradesManager.update_trade(order_response.get("id"), trade_details)
-                        
                         logger.info(f"Order Placed {order_response.get("id")}")
                     else:
                         logger.info(f"Order Placing FAILED {order_response}")
 
+    
     async def tick_consumer(self):
         while True:
             tick = await self.tick_queue.get()
