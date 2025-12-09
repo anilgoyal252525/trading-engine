@@ -1,23 +1,37 @@
-This is the trading system 
+# DESIGN PATTERN
 
-# Async Event-Driven Pub/Sub queue based
+[x] Async Event-Driven Pub/Sub queue based
 
-- main initialize 
-- logger
-- event bus (central hub)
-- broker (data provider)
-- data manager
-    takes data and build candle based on users req and send to hub
-- storage manager
-- strategy manager wire all strategies
-    uses strategy config 
-- order placement manager
+# SYSTEM DESIGN STRUCTURE 
 
+[X] main
+    1. load the whole system 
 
-main = wires the whole system
-strategy manager = wires the strategies
-strategies = run the logic
-order manager = sends orders
-hub = routes everything
-broker = provides data
-storage = records everything
+[x] broker
+    1. data provider 
+    2. sends to the data manager
+
+[x] data_manager
+    1. manage data subscription from strategies
+    2. send data to event bus 
+    3. use candle builder, to build the candles 
+
+[X] centeral hub 
+    1. takes the data from data_manager 
+    2. routes to strategies
+
+[X] strategies
+    1. consume the data from hub
+    2. strategy manager = wires the strategies
+
+[X] order_placement_manager
+    1. place orders
+    2. modify order
+
+# Error Handling checks
+
+[x] placing order
+[x] modifing order
+[x] saving csv after trade completion
+[x] data laging from broker feeds
+[x] data manager not building correct data
