@@ -1,16 +1,15 @@
 # strategy/strategy_one.py
 import asyncio
-from data_model.data_model import TradeData
-from strategies.strategy_one.logic_manager import StrategyLogicManager
-from strategies.strategy_one.trailing_manager import TrailingManager
-from order_active_state_manager.order_state_manager import ActiveTradesManager
-from order_placement_manager.order_placement_manager import FyersOrderPlacement
-from common_utils.error_handling import error_handling
-from common_utils.logger import logger
-from strategies.strategy_interface import BaseStrategy
+from src.core.data_model import TradeData
+from src.strategies.strategy_one.logic_manager import StrategyLogicManager
+from src.strategies.strategy_one.trailing_manager import TrailingManager
+from src.managers.order_state_manager import ActiveTradesManager
+from src.managers.order_placement_manager import FyersOrderPlacement
+from src.infrastructure.error_handling import error_handling
+from src.infrastructure.logger import logger
 
 @error_handling 
-class StrategyOne(BaseStrategy):
+class StrategyOne:
     def __init__(self, event_bus, strategy_id, ws_mgr, loop, max_trades=1):
         self.event_bus = event_bus
         self.strategy_id = strategy_id
@@ -88,7 +87,7 @@ class StrategyOne(BaseStrategy):
                             {"trailing_levels": trailing}
                         )
 
-                self.ws_mgr.subscribe_symbol("NSE:NIFTY25D1626000CE", mode="tick")
+                self.ws_mgr.subscribe_symbol("NSE:NIFTY2631024800CE", mode="tick")
 
         # ---------------- Child order updates ----------------
         if parent_id == active_trade.order_id:  # Child order updates
@@ -124,7 +123,7 @@ class StrategyOne(BaseStrategy):
             # Any child filled -> close trade (keep existing behavior)
             if status == 2:
                 logger.info(f"Child Order Filled, Child Order ID: {order_id} for Parent ID: {parent_id}")
-                self.ws_mgr.unsubscribe_symbol("NSE:NIFTY25D1626000CE")
+                self.ws_mgr.unsubscribe_symbol("NSE:NIFTY2631024800CE")
                 await self.ActiveTradesManager.close_trade(active_trade.order_id)
                 logger.info(f"[{self.strategy_id}] | Trade {self.trades_done} closed")
 
@@ -165,7 +164,7 @@ class StrategyOne(BaseStrategy):
                         await self.ActiveTradesManager.add_trade(
                             self.trades_done, self.strategy_id, order_response.get("id") 
                         )
-                        logger.info(f"Order Placed {order_response.get("id")}")
+                        logger.info(f"Order Placed {order_response.get('id')}")
                     else:
                         logger.info(f"Order Placing FAILED {order_response}")
 

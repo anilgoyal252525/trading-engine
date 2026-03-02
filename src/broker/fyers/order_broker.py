@@ -1,15 +1,14 @@
 from fyers_apiv3.FyersWebsocket import order_ws
 import asyncio
-from common_utils.error_handling import error_handling
-from common_utils.logger import logger
+from src.infrastructure.logger import logger
+from src.infrastructure.error_handling import error_handling
 from dotenv import load_dotenv
 import os
-from .ibroker import IBroker
 
 load_dotenv()
 
 @error_handling
-class FyersOrderPositionTracker(IBroker):
+class FyersOrderPositionTracker:
 
     def __init__(self, access_token=None):
         client_id = os.getenv("CLIENT_ID")

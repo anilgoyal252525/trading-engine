@@ -5,7 +5,7 @@ import inspect
 import traceback
 from collections.abc import Callable
 from typing import Any, TypeVar
-from common_utils.logger import logger
+from src.infrastructure.logger import logger
 
 T = TypeVar('T')
 

@@ -1,6 +1,6 @@
-from common_utils.logger import logger
-from common_utils.error_handling import error_handling
-from data_model.data_model import Tick
+from src.infrastructure.logger import logger
+from src.infrastructure.error_handling import error_handling
+from src.core.data_model import Tick
 
 @error_handling
 class TrailingManager:

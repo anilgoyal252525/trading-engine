@@ -1,0 +1,14 @@
+[project]
+name = "trading-engine"
+version = "0.1.0"
+description = "This is the trading engine"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "fyers-apiv3==3.1.7",
+    "numpy>=2.4.2",
+    "psutil==7.0.0",
+    "python-dotenv==1.1.1",
+    "setuptools==68.2.2",
+]

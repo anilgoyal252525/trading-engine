@@ -3,8 +3,8 @@ import json
 import requests
 from datetime import date
 from dotenv import load_dotenv
-from common_utils.error_handling import error_handling
-from common_utils.logger import logger
+from core.error_handling import error_handling
+from core.logger import logger
 
 load_dotenv()
 

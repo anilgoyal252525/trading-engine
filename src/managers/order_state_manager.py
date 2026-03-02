@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict
-from common_utils.error_handling import error_handling
-from data_model.data_model import TradeData
+from src.infrastructure.error_handling import error_handling
+from src.core.data_model import TradeData
 
 @error_handling
 class ActiveTradesManager:

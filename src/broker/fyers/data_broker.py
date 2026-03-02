@@ -4,14 +4,13 @@ import asyncio
 import json
 from dotenv import load_dotenv
 from fyers_apiv3.FyersWebsocket import data_ws
-from common_utils.logger import logger
-from common_utils.error_handling import error_handling
-from .ibroker import IBroker
+from src.infrastructure.logger import logger
+from src.infrastructure.error_handling import error_handling
 
 load_dotenv()
 
 @error_handling
-class FyersDataBroker(IBroker):
+class FyersDataBroker:
     def __init__(self, access_token=None):
         self._token = access_token or os.getenv("FYERS_ACCESS_TOKEN")
         if not self._token:

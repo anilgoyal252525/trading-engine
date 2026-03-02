@@ -1,13 +1,13 @@
 import asyncio
-from broker.fyers_broker.fyers_data_websocket import FyersDataBroker
-from broker.fyers_broker.fyers_position_webscoket import FyersOrderPositionTracker
-from data_manager.data_manager import DataManager
-from strategies.strategy_one.strategy_one import StrategyOne
-from common_utils.csv_builder import CSVBuilder
-from data_manager.candle_builder.candle_builder import CandleBuilder
-from central_hub.event_bus import EventBus
-from common_utils.error_handling import error_handling
-from common_utils.logger import logger
+from src.broker.fyers.data_broker import FyersDataBroker
+from src.broker.fyers.order_broker import FyersOrderPositionTracker
+from src.managers.data_manager import DataManager
+from src.managers.candle_builder.candle_builder import CandleBuilder
+from src.strategies.strategy_one.strategy_one import StrategyOne
+from src.infrastructure.event_bus import EventBus
+from src.utils.csv_builder import CSVBuilder
+from src.infrastructure.error_handling import error_handling
+from src.infrastructure.logger import logger
 import os
 
 @error_handling

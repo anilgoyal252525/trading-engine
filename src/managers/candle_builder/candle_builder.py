@@ -2,7 +2,7 @@ import asyncio
 import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, Optional
-from data_model.data_model import Tick, Candle
+from src.core.data_model import Tick, Candle
 
 class CandleBuilder:
     __slots__ = ('event_bus', 'tick_data', 'tick_count', 'last_tick_time', 

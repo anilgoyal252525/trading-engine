@@ -1,15 +1,14 @@
 import asyncio
-from common_utils.logger import logger
-from common_utils.error_handling import error_handling
-from data_model.data_model import Tick
+from src.core.data_model import Tick
 from datetime import datetime
 from .candle_builder.candle_builder import CandleBuilder
-from broker.fyers_broker.ibroker import IBroker
-from .idata_manager import IDataManager
-from central_hub.event_bus import EventBus
+from src.broker.fyers.ibroker import IBroker
+from src.infrastructure.event_bus import EventBus
+from src.infrastructure.logger import logger
+from src.infrastructure.error_handling import error_handling
 
 @error_handling
-class DataManager(IDataManager):
+class DataManager:
     def __init__( self, event_bus: EventBus, data_broker: IBroker, order_broker: IBroker = None, candle_builder = CandleBuilder):
         self.data_broker = data_broker
         self.order_broker = order_broker
