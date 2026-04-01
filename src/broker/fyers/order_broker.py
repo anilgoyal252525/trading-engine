@@ -1,101 +1,79 @@
-from fyers_apiv3.FyersWebsocket import order_ws
-import asyncio
-from src.infrastructure.logger import logger
-from src.infrastructure.error_handling import error_handling
-from dotenv import load_dotenv
-import os
+from __future__ import annotations
 
-load_dotenv()
+from typing import Dict, List, Optional
 
-@error_handling
-class FyersOrderPositionTracker:
+from ...core.data_model import Signal, TradeData
+from ...core.enums import OrderSide, OrderType, TradeStatus
+from ...core.interfaces.iorder_broker import IOrderBroker
+from ..registry import register_order_broker
 
-    def __init__(self, access_token=None):
-        client_id = os.getenv("CLIENT_ID")
-        token = access_token or os.getenv("FYERS_ACCESS_TOKEN")
 
-        if not client_id or not token:
-            logger.warning("Missing CLIENT_ID or FYERS_ACCESS_TOKEN")
+@register_order_broker("fyers")
+class FyersOrderBroker(IOrderBroker):
+    """
+    Adapter: wraps your existing Fyers order API behind IOrderBroker.
+    """
 
-        self.access_token = f"{client_id}:{token}"
-        self._loop: asyncio.AbstractEventLoop = None
-        self._queue: asyncio.Queue = None     
+    def __init__(self, access_token: Optional[str] = None, **kwargs):
+        self._access_token = access_token
         self._connected = False
-        self._task = None
+        # TODO: self._fyers = fyersModel.FyersModel(client_id=..., token=access_token)
 
-        self.fyers = order_ws.FyersOrderSocket(
-            access_token=self.access_token,
-            write_to_file=False,
-            log_path=None,
-            on_connect=self._on_open,
-            on_close=self._on_close,
-            on_error=self._on_error,
-            on_positions=self._on_position,
-            on_orders=self._on_order,
-            on_trades=self._on_trade,
-        )
-
-    def _on_open(self):
+    async def connect(self) -> None:
+        # Validate token, warm up session
         self._connected = True
-        self.fyers.subscribe(data_type="OnPositions")
-        self.fyers.subscribe(data_type="OnOrders")
-        self.fyers.subscribe(data_type="OnTrades")
 
-    def _on_close(self, msg):
+    async def disconnect(self) -> None:
         self._connected = False
-        logger.info(f"[Order WS] Closed: {msg}")
 
-    def _on_error(self, msg):
-        logger.error(f"[Order WS] Error: {msg}")
+    async def place_order(self, signal: Signal) -> str:
+        """
+        Map Signal → Fyers order dict, call your existing order placement.
+        Returns order_id string.
+        """
+        order_dict = {
+            "symbol": signal.symbol,
+            "qty": signal.quantity,
+            "type": self._map_order_type(signal.order_type),
+            "side": 1 if signal.side == OrderSide.BUY else -1,
+            "productType": "INTRADAY",
+            "limitPrice": signal.price,
+            "stopPrice": signal.sl,
+            "validity": "DAY",
+            "disclosedQty": 0,
+            "offlineOrder": False,
+        }
+        # response = self._fyers.place_order(data=order_dict)
+        # return response["id"]
+        return "MOCK_ORDER_ID"
 
-    def _on_position(self, msg):
-        positions = msg.get("positions")
-        if not positions:
-            return
+    async def cancel_order(self, order_id: str) -> bool:
+        # response = self._fyers.cancel_order(data={"id": order_id})
+        # return response["s"] == "ok"
+        return True
 
-        positions_list = positions if isinstance(positions, list) else [positions]
-        for pos in positions_list:
-            if self._queue and self._loop:
-                asyncio.run_coroutine_threadsafe(self._queue.put({"type": "positions_data", "data": pos}), self._loop)
+    async def get_order_status(self, order_id: str) -> Dict:
+        # return self._fyers.order_detail(data={"id": order_id})
+        return {}
 
-    def _on_order(self, msg):
-        orders = msg.get("orders")
-        if not orders:
-            return
+    async def get_positions(self) -> List[TradeData]:
+        # raw = self._fyers.positions()
+        # return [self._map_position(p) for p in raw.get("netPositions", [])]
+        return []
 
-        orders_list = orders if isinstance(orders, list) else [orders]
-        for order in orders_list:
-            if self._queue and self._loop:
-                asyncio.run_coroutine_threadsafe(self._queue.put({"type": "orders_data", "data": order}), self._loop)
-    
-    def _on_trade(self, msg):
-        pass
-    
-    async def connect(self, queue: asyncio.Queue = None):
-        self._queue = queue
-        self._loop = asyncio.get_running_loop()
-        self._task = self._loop.run_in_executor(None, self.fyers.connect)
-        logger.info("Fyers Position Websocket Connected")
-
-    async def disconnect(self):
-        self._connected = False
-        if self.fyers:
-            try:
-                self.fyers.keep_running = False
-                if hasattr(self.fyers, "ws") and self.fyers.ws:
-                    self.fyers.ws.close(status=1000, reason="Normal Closure")
-
-                if self._task:
-                    self._task.cancel()
-                logger.info("Fyers Position Websocket Disconnected")
-            except Exception as e:
-                logger.error(f"[Order WS] Exception during disconnect: {e}")
-
-    def subscribe(self, data):
-        pass
-
-    def unsubscribe(self, data):
-        pass
-
+    @property
     def is_connected(self) -> bool:
         return self._connected
+
+    # ------------------------------------------------------------------ #
+    #  Helpers
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _map_order_type(order_type: OrderType) -> int:
+        return {
+            OrderType.MARKET: 2,
+            OrderType.LIMIT: 1,
+            OrderType.SL: 4,
+            OrderType.SL_M: 3,
+        }[order_type]

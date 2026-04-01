@@ -1,63 +1,71 @@
-from fyers_apiv3 import fyersModel
-import os
-from dotenv import load_dotenv
-from src.infrastructure.error_handling import error_handling
+from __future__ import annotations
 
-load_dotenv()
+import logging
+from datetime import datetime
 
-@error_handling
-class FyersOrderPlacement:
-    def __init__(self, client_id: str = None, access_token: str = None, is_async: bool = True, log_path=None):
-        self.client_id = client_id or os.getenv("CLIENT_ID")
-        self.access_token = access_token or os.getenv("FYERS_ACCESS_TOKEN")
-        self.fyers = fyersModel.FyersModel(
-            client_id=self.client_id, 
-            token=self.access_token, 
-            is_async=is_async, 
-            log_path=log_path
+from ..core.data_model import Signal, TradeData
+from ..core.enums import TradeStatus
+from ..core.interfaces.iorder_broker import IOrderBroker
+from .trade_state_manager import TradeStateManager
+
+logger = logging.getLogger(__name__)
+
+
+class OrderPlacementManager:
+    """
+    Broker-agnostic order placement.
+    Coordinates between a Signal, IOrderBroker, and TradeStateManager.
+    Strategies call this — they never touch the broker directly.
+    """
+
+    def __init__(
+        self,
+        order_broker: IOrderBroker,
+        trade_state_manager: TradeStateManager,
+    ) -> None:
+        self._broker = order_broker
+        self._tsm = trade_state_manager
+
+    async def place(self, signal: Signal, strategy_id: str) -> TradeData:
+        """
+        Place an order for a signal.
+        Creates a TradeData record and returns it.
+        Raises on broker error — caller handles retry logic.
+        """
+        trade = TradeData(
+            trade_id="",
+            strategy_id=strategy_id,
+            symbol=signal.symbol,
+            side=signal.side,
+            quantity=signal.quantity,
+            entry_price=signal.price,
+            sl=signal.sl,
+            target=signal.target,
+            status=TradeStatus.PENDING,
+            entry_time=datetime.now(),
+            tag=signal.tag,
         )
+        trade = self._tsm.create_trade(trade)
 
-    async def place_order(self, symbol: str, qty: int, order_type: int, side: int, stop_loss: float, take_profit: float):
-        order_data = {
-            "symbol": symbol,
-            "qty": qty,
-            "type": order_type,
-            "side": side,
-            "productType": "BO", 
-            "validity": "DAY",
-            "disclosedQty": 0,
-            "offlineOrder": False,
-            "stopLoss": stop_loss, 
-            "takeProfit": take_profit 
-        }
-        return await self.fyers.place_order(order_data)
+        try:
+            order_id = await self._broker.place_order(signal)
+            trade.order_id = order_id
+            trade.status = TradeStatus.OPEN
+            self._tsm.update_status(trade.trade_id, TradeStatus.OPEN)
+            logger.info("Order placed: %s | order_id=%s", trade.trade_id, order_id)
+        except Exception as exc:
+            trade.status = TradeStatus.FAILED
+            self._tsm.update_status(trade.trade_id, TradeStatus.FAILED)
+            logger.error("Order failed: %s | %s", trade.trade_id, exc)
+            raise
 
-    async def modify_order(self, order_id: str, order_type: int, limit_price: float, stop_price: float, qty: int):
-        order_data = {
-            "id": order_id,
-            "type": order_type, 
-            "limitPrice": limit_price, 
-            "stopPrice": stop_price,
-            "qty": qty
-        }
-        return await self.fyers.modify_order(order_data)
+        return trade
 
-    async def get_main_stop_target_orders(self, parent_id: str):
-        response = await self.fyers.orderbook()
-        orders = response.get("orderBook", [])
-
-        main_order, stop_order, target_order = None, None, None
-
-        for order in orders:
-            oid = order.get("id")
-            pid = order.get("parentId")
-
-            if oid == parent_id:
-                main_order = order
-            elif pid == parent_id:
-                if order.get("stopPrice", 0) > 0:
-                    stop_order = order
-                elif order.get("limitPrice", 0) > 0:
-                    target_order = order
-
-        return main_order, stop_order, target_order
+    async def exit_trade(self, trade_id: str, exit_signal: Signal) -> TradeData:
+        """
+        Place an exit order and close the trade record.
+        """
+        order_id = await self._broker.place_order(exit_signal)
+        trade = self._tsm.close_trade(trade_id, exit_signal.price)
+        logger.info("Exit order placed: %s | order_id=%s", trade_id, order_id)
+        return trade

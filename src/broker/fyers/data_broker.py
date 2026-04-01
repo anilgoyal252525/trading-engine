@@ -1,83 +1,114 @@
-import os
-import threading
+from __future__ import annotations
+
 import asyncio
-import json
-from dotenv import load_dotenv
-from fyers_apiv3.FyersWebsocket import data_ws
-from src.infrastructure.logger import logger
-from src.infrastructure.error_handling import error_handling
+from datetime import datetime
+from typing import Callable, Dict, List, Optional
 
-load_dotenv()
+from ...core.data_model import Candle, Tick
+from ...core.interfaces.idata_broker import IDataBroker
+from ..registry import register_data_broker
 
-@error_handling
-class FyersDataBroker:
-    def __init__(self, access_token=None):
-        self._token = access_token or os.getenv("FYERS_ACCESS_TOKEN")
-        if not self._token:
-            logger.warning("FYERS_ACCESS_TOKEN is missing")
-        self._socket = None
-        self._thread = None
-        self._running = False
-        self._loop = None
-        self._queue: asyncio.Queue = None
+
+@register_data_broker("fyers")
+class FyersDataBroker(IDataBroker):
+    """
+    Adapter: wraps your existing Fyers websocket code behind IDataBroker.
+    Replace the _fyers_* stubs with your real Fyers SDK calls.
+    """
+
+    def __init__(self, access_token: Optional[str] = None, **kwargs):
+        self._access_token = access_token
+        self._connected = False
+        self._subscriptions: Dict[str, Callable[[Tick], None]] = {}
+        # TODO: store your real Fyers SDK client here
+        # self._ws = FyersDataSocket(access_token=access_token, ...)
+
+    # ------------------------------------------------------------------ #
+    #  IDataBroker implementation
+    # ------------------------------------------------------------------ #
+
+    async def connect(self) -> None:
+        """
+        Replace with your real Fyers websocket connect.
+        Keep the _connected flag update.
+        """
+        # await self._ws.connect()
+        self._connected = True
+
+    async def disconnect(self) -> None:
+        # await self._ws.close()
         self._connected = False
 
-    async def connect(self, queue: asyncio.Queue):
-        if self._running:
-            return
-        self._running = True
-        self._loop = asyncio.get_running_loop()
-        self._queue = queue
+    async def subscribe(
+        self,
+        symbols: List[str],
+        on_tick: Callable[[Tick], None],
+    ) -> None:
+        for symbol in symbols:
+            self._subscriptions[symbol] = on_tick
+        # TODO: call your real Fyers subscribe
+        # self._ws.subscribe(symbols=symbols, data_type="symbolData")
 
-        self._thread = threading.Thread(target=self._run_ws, daemon=True)
-        self._thread.start()
+    async def unsubscribe(self, symbols: List[str]) -> None:
+        for symbol in symbols:
+            self._subscriptions.pop(symbol, None)
+        # self._ws.unsubscribe(symbols=symbols)
 
-    def _run_ws(self):
-        def _on_open():
-            self._connected = True
-            logger.info("Fyers Data Websocket Connected")
+    async def get_historical_candles(
+        self,
+        symbol: str,
+        timeframe: int,
+        from_dt: datetime,
+        to_dt: datetime,
+    ) -> List[Candle]:
+        """
+        Replace with your real Fyers history API call.
+        Map the raw response to List[Candle].
+        """
+        # Example skeleton — replace body:
+        # raw = self._fyers.history(symbol=symbol, resolution=str(timeframe), ...)
+        # return [self._map_candle(r, symbol, timeframe) for r in raw["candles"]]
+        return []
 
-        def _on_message(message):
-            msg = json.loads(message) if isinstance(message, str) else message
-            if self._running and self._queue:
-                asyncio.run_coroutine_threadsafe(self._queue.put({"type": "raw_tick_data", "data": msg}), self._loop)
-
-        def _on_error(error):
-            logger.error(f"[Fyers] Error: {error}")
-
-        def _on_close(msg):
-            self._connected = False
-            logger.info(f"[Fyers] Closed: {msg}")
-
-        self._socket = data_ws.FyersDataSocket(
-            access_token=self._token,
-            reconnect=True,
-            litemode=False,
-            write_to_file=False,
-            on_connect=_on_open,
-            on_message=_on_message,
-            on_error=_on_error,
-            on_close=_on_close
-        )
-        self._socket.connect()
-        self._socket.keep_running()
-
-    async def disconnect(self):
-        self._running = False
-        self._connected = False
-        if self._socket:
-            self._socket.close_connection()
-        logger.info("Fyers Data Websocket Disconnected")
-
-    def subscribe(self, symbols: list):
-        if self._socket and self._connected:
-            self._socket.subscribe(symbols, "SymbolUpdate")
-            logger.info(f"[Fyers] Subscribed: {symbols}")
-
-    def unsubscribe(self, symbols: list):
-        if self._socket and self._connected:
-            self._socket.unsubscribe(symbols)
-            logger.info(f"[Fyers] Unsubscribed: {symbols}")
-
+    @property
     def is_connected(self) -> bool:
         return self._connected
+
+    # ------------------------------------------------------------------ #
+    #  Internal helpers
+    # ------------------------------------------------------------------ #
+
+    def _on_tick_raw(self, raw: dict) -> None:
+        """
+        Fyers websocket message callback.
+        Parse raw dict → Tick → call subscriber.
+        Plug your existing parsing logic here.
+        """
+        symbol = raw.get("symbol", "")
+        if symbol not in self._subscriptions:
+            return
+        tick = Tick(
+            symbol=symbol,
+            ltp=float(raw.get("ltp", 0)),
+            timestamp=datetime.fromtimestamp(raw.get("timestamp", 0)),
+            volume=int(raw.get("vol_traded_today", 0)),
+            bid=float(raw.get("bid_price", 0)),
+            ask=float(raw.get("ask_price", 0)),
+        )
+        callback = self._subscriptions[symbol]
+        asyncio.get_event_loop().call_soon_threadsafe(
+            asyncio.ensure_future, asyncio.coroutine(lambda: callback(tick))()
+        )
+
+    @staticmethod
+    def _map_candle(row: list, symbol: str, timeframe: int) -> Candle:
+        """Map a raw Fyers candle row [epoch, o, h, l, c, vol] to Candle."""
+        ts, o, h, l, c, vol = row
+        return Candle(
+            symbol=symbol,
+            timeframe=timeframe,
+            open=o, high=h, low=l, close=c,
+            volume=int(vol),
+            timestamp=datetime.fromtimestamp(ts),
+            is_closed=True,
+        )

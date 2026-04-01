@@ -1,0 +1,17 @@
+brokers:
+  data: fyers
+  order: fyers
+
+strategies:
+  - id: STRATEGY_ONE
+    module: strategy_one
+    enabled: true
+    max_trades: 1
+    symbols:
+      - name: NSE:NIFTY50-INDEX
+        mode: tick
+        timeframe: 1
+    params:
+      fast_period: 9
+      slow_period: 21
+      entry_buffer_pts: 5.0

@@ -1,56 +1,40 @@
+"""
+Entry point.
+Usage: python main.py
+       python main.py --config config/settings.yml
+"""
+from __future__ import annotations
+
+import argparse
 import asyncio
-from src.broker.fyers.data_broker import FyersDataBroker
-from src.broker.fyers.order_broker import FyersOrderPositionTracker
-from src.managers.data_manager import DataManager
-from src.managers.candle_builder.candle_builder import CandleBuilder
-from src.strategies.strategy_one.strategy_handler import StrategyOne
-from src.infrastructure.event_bus import EventBus
-from src.utils.csv_builder import CSVBuilder
-from src.infrastructure.error_handling import error_handling
-from src.infrastructure.logger import logger
-import os
+import logging
 
-@error_handling
-async def main():
-    
-    loop = asyncio.get_running_loop()
-    
-    await logger.start()
-    
-    logger.info("ALGO STARTED")
+import uvloop
 
-    data_socket = FyersDataBroker()
-    position_order_socket = FyersOrderPositionTracker()
-    event_bus = EventBus()
-    csv_builder = CSVBuilder(event_bus)
-    candle_builder = CandleBuilder(event_bus=event_bus)
-    ws_mgr = DataManager(event_bus=event_bus, data_broker=data_socket, order_broker=position_order_socket, candle_builder=candle_builder)
-    
-    await ws_mgr.start()
-    
-    # Subscribe symbols
-    ws_mgr.subscribe_symbol("NSE:NIFTY50-INDEX", mode="candle", timeframe=30)
-    
-    logger.info("ALL RESOURCES SUBSCRIBED")
-    
-    # Run strategy
-    strategy_one = StrategyOne(event_bus, "STRATEGY_ONE", ws_mgr, loop, max_trades=1)
-    
-    await asyncio.gather(
-        strategy_one.run()
+from src.engine import Engine
+from src.infrastructure.config_loader import load_config
+
+
+def setup_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Stop all connections
-    await ws_mgr.stop()
-    
-    logger.info("[Main] Program terminated")
-    
-    await logger.stop()
-    await csv_builder.stop()
-    
-    print("Exit")
-    
-    os._exit(0)
+
+async def main(config_path: str) -> None:
+    config = load_config(config_path)
+    engine = Engine(config)
+    await engine.start()
+    await engine.run_forever()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="config/settings.yml")
+    args = parser.parse_args()
+
+    setup_logging()
+    uvloop.install()  # drop-in replacement for asyncio event loop
+    asyncio.run(main(args.config))
